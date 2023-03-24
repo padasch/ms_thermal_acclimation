@@ -37,3 +37,14 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+# Folders
+/archive/
+/output/
+/tests/
+/data/
+/docs/
+
+# MacOS
+.DS_store
+
