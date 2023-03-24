@@ -1,5 +1,8 @@
 # Euler Code to Extract Forcing ----
-## To run this file, cd to location of this file on the cluster and use bash code below:
+## Disclaimer ----
+#' To run this file, one needs to have access to worldclim, watch-wfde5, and etopo datasets.
+#' Additionally, the {ingestr} packages is required to be installed and working.
+#' To run this file, cd to location of this file on the cluster and use bash code below:
 # bsub -u schneipa -J get_siteinfo -R "rusage[mem=25000]" "Rscript --vanilla rscript_ingest_siteinfo.R"
 
 ## Packages
