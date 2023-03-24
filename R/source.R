@@ -1,9 +1,6 @@
 # Setup ----
 
 ## Packages ----
-# TODO: Remove packages that are not actually used like units, tealeaves, optimr
-# (either copy functions from plantecophys or note them in the script!)
-
 all_pkgs <- c(
   ## Coding and Wrangling
   "here", # For organizing working directory
@@ -26,11 +23,11 @@ all_pkgs <- c(
   # "spatialEco",
   
   ## Statistics
-  "lme4", # Fitting non-linear model to data
+  "lme4" # Fitting non-linear model to data
   # "zoo",  # To calculate rolling averages
   
   ## Misc
-  "plantecophys"
+  # "plantecophys"
   # "rsofun", 
   # "ingestr", 
   # "rpmodel"
