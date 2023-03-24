@@ -1,0 +1,38 @@
+Variable,Description,Units,Notes
+Dataset,unique name given for individual datasets,,
+Data_Type,data grouping tag,ACi-T: ACi temperature response data; An-T: temperature response of net photosynthesis at ambient CO2 concentrations,
+Data contributor,name of the individual dataset contributors,,
+Location,site where the dataset collected,,
+Lifespan,Evergreen or Deciduous,,
+Tregion,Biome,,
+Type,Gymnosperm or angiosperm,,
+PFT,plant functional type,"ARCTIC: arctic tundra, NET-TE: temperate needle leaf evergreen trees; NET-B: boreal needle leaf evergreen trees; BDT-TE: temperate broadleaf decibuous trees; BET-TE: temperate broadleaf evergreen trees; BET-Tr: tropical broadleaf evergreen trees",
+Growth_condition,plant growth condition,,Field (CG): common garden studies; Field (NE): plants growing in native environments
+species,species name with a unique tag to the dataset,,
+Species,standard species name,,
+seed_source_latitude,species' seed source latitude,,
+seed_source_longitude,species' seed source longitude,,
+season,measurement season,,
+Date,data collection date,,
+Temp_Treatment,experimental temperature treatments,"""ambient"", ""elevated"", ""no_temperature_treatments""",please refer to the reference given for detailed description on the temperature treatments
+CO2_Treatment,experimental CO2 treatments,"""ambient"", ""elevated"", ""no_CO2_treatments""",please refer to the reference given for detailed description on the CO2 treatments
+Chamber,unique chamber number for whole tree chamber experiments,,this variable only available for whole tree chamber experiments
+Water_Treatment,experimental watering treatments,"""wet"", ""dry""",please refer to the reference given for detailed description on the water treatments
+leaf_age,leaf age,years,optional 
+replicate,replicate id,,optional 
+Curve_Id,a unique curve number for individual ACi curves in a dataset,,
+Curve_number,a unique curve number for individual ACi curves within the dataset,,
+Photo,net photosynthetic rate,mmol m-2 s-1,
+Cond,stomatal conductance,mmol m-2 s-1,
+Ci,intercellular CO2 concentration,mmol mol-1,
+VpdL,Vapour pressure deficit,kPa,
+Tair,air temperature,°C,
+Tleaf,leaf temperature,°C,
+TBlk,LICOR block temperature,°C,
+CO2R,reference CO2 concentration ,mmol mol-1,
+CO2S,CO2 concentration at leaf surface,mmol mol-1,
+PARi,Photosynthetically active radiation inside leaf cuvette,mmol m-2 s-1,
+MAT,mean annual air temperature at the species' seed source,°C,average across the period 1960-1990; WorldClim 30 seconds grided data
+MAXT,mean maximum air temperature of the warmest month at the species' seed source,°C,average across the period 1960-1990; WorldClim 30 seconds grided data
+mGDD0,mean air temperature during the growing season at the species' seed source,°C,average across the period 1960-1990; WorldClim 30 seconds grided data
+Reference,reference ,,"key reference to the original data descriptor, analysis and results published"
