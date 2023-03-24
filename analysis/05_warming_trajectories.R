@@ -391,11 +391,11 @@ p_save <-
       title = expression(bold("Trajectories of" ~ A[net] ~ "under warming"))
     ) &
     theme(legend.position = "bottom")
-
-ggsave(paste0(dir_figs, "/trajectory-absolute-and-relative.pdf"),
-       p_save,
-       height = 10,
-       width = 10)
+# 
+# ggsave(paste0(dir_figs, "/trajectory-absolute-and-relative.pdf"),
+#        p_save,
+#        height = 10,
+#        width = 10)
 
 # Relative scale only
 p_save <-
@@ -431,381 +431,109 @@ p_save <-
   theme(plot.title = element_text(hjust = 0))
 
 
-ggsave(paste0(dir_figs, "/trajectory-absolute-only.pdf"),
-       p_save,
-       height = 4.25,
-       width = 10)
+# ggsave(paste0(dir_figs, "/trajectory-absolute-only.pdf"),
+#        p_save,
+#        height = 4.25,
+#        width = 10)
 
 ### Noacc - ER - Full ----
 
 ## Bind dataframes to one
-df_long <- 
-  rbind(df_fullacc_temporal, 
-        df_noacc,
-        df_er) %>% 
-  mutate(
-    across(
-      setup, factor, 
-      levels=c("noacc", "er", "fullacc_temporal")))
-
-p <-
-  df_long %>% 
-  ggplot() +
-  
-  # > Geoms
-  aes(
-    # y = rel_red_aopt*100,
-    y = agrowth,
-    # x = delta_t
-    x = temp
-  ) +
-  geom_path(
-    aes(
-      group = site_id
-    )
-  ) +
-  geom_point(
-    aes(
-      fill = as.factor(warming),
-      shape = site_id,
-    ),
-    size = 2.5) +
-  facet_wrap(~setup,
-             nrow = 1,
-             labeller = as_labeller(c(
-               'fullacc_temporal'  = "Full Acclimation",
-               'noacc'  = "No Acclimation",
-               'er' = "ER"
-             ))) +
-
-  # > Legend and colors
-  theme_linedraw() +
-  theme(
-    # legend.position = c(0.9, 0.05),
-    # legend.justification = c(1, 0),
-    # legend.position = "bottom",
-    # strip.background =element_rect(fill="white"),
-    # strip.text = element_text(colour = 'black', face = "bold"),
-    panel.grid = element_blank(),
-    strip.text = element_text(face = "bold"),
-    plot.title = element_text(hjust = 0.5, size = 14)) +
-  scale_fill_viridis_d(
-    "Warming [°C]: ",
-    option = "viridis",
-    labels = c("+0", "+1", "+2", "+3", "+4", "+5"),
-    guide = guide_legend(
-      override.aes = list(
-        shape = c(21, 21, 21, 21, 21, 21)
-      )
-    )
-  ) +
-  scale_shape_manual(
-    "Climate Zone: ",
-    labels = c("Arctic", "Temperate", "Boreal", "Tropical"),
-    values = c(22, 21, 25, 24),
-    guide = guide_legend(
-      override.aes = list(
-        shape = c(21, 24, 22, 25),
-        fill  = c("black", "black", "black", "black")))
-    ) +
-  
-  # > Layout
-  # ylim(40, 100) +
-  # xlim(-15, 15) +
-  labs(y = expression(A[net] ~ "at" ~ T[growth] ~ " as percentage of " ~ A[opt] ~ "[%]"),
-       x = expression(T[opt] ~ "-" ~ T[growth] ~ "[°C]"),
-       # x = expression(T[growth] ~ "[°C]"),
-       subtitle = expression(bold("Trajectories of" ~ A[net] ~ "under warming")))
-
-ggsave(paste0(dir_figs, "/trajectory-agrowth_vs_deltat.pdf"),
-       p,
-       height = 4,
-       width = 12)
-
-df_tmp_4 <- df_long %>% group_split(setup)
-
-for (i in 1:length(df_tmp_4)) {
-  
-  cat("\n-----------------\n",
-      "Setup: ", as.character(df_tmp_4[[i]]$setup)[1])
-  
-  df_tmp_5 <- df_tmp_4[[i]] %>% group_split(site_id)
-  
-  for (j in 1:length(df_tmp_5)) {
-    
-    cat("\n Site: ", df_tmp_5[[j]]$site_id[[1]],
-        "    d Anet = ", round(abs(max(df_tmp_5[[j]]$rel_red_aopt - min(df_tmp_5[[j]]$rel_red_aopt))), 2))
-  }
-}
-
-### Anet-Tleaf Curves ----
-# Wrangle dataset
-site <- "tar"
-
-df_curves_full <- 
-  out_fullacc$df %>% 
-  # dplyr::filter(str_detect(sitename, site)) %>% 
-  dplyr::mutate(warming = as.factor(warming),
-                rpm_inst = purrr::map(rpm_inst, 
-                                      ~mutate(., anet_scaled = anet/max(anet) * 100))) %>% 
-  dplyr::select(sitename, warming, temp, rpm_inst) %>% 
-  tidyr::unnest(rpm_inst)
-
-df_curves_no <- 
-  out_noacc$df %>% 
-  # dplyr::filter(str_detect(sitename, site)) %>% 
-  dplyr::mutate(warming = as.factor(warming),
-                rpm_inst = purrr::map(rpm_inst, 
-                                      ~mutate(., anet_scaled = anet/max(anet) * 100))) %>% 
-  dplyr::select(sitename, warming, temp, rpm_inst) %>% 
-  tidyr::unnest(rpm_inst)
-
-
-# Single curves for research question statement
-df_curves_full %>% 
-  dplyr::mutate(anet = ifelse(warming == 0, anet, NA)) %>% 
-  ggplot() +
-  dark_theme_classic() +
-  geom_line(aes(tc_leaf, anet, group = warming)) +
-  xlim(0, 40)
-
-df_curves_full %>% 
-  dplyr::filter(warming %in% c(0, 3, 5)) %>%
-  ggplot() +
-  dark_theme_classic() +
-  geom_line(aes(tc_leaf, anet, group = warming)) +
-  facet_wrap(
-    ~warming, ncol = 1
-  ) +
-  xlim(0, 40)
-
-# A single example curve
-
-# No acclimation __________________
-# Tropic Example
-df_curves_no %>% 
-  dplyr::filter(str_detect(sitename, "jens")) %>%
-  dplyr::mutate(anet_scaled = ifelse(warming == 0, anet_scaled, NA)) %>% 
-  ggplot() +
-  geom_vline(aes(xintercept = temp - 5, color = warming),
-             size = 2,
-             alpha = 0.75) +
-  geom_line(aes(tc_leaf, anet_scaled, group = warming)) +
-  # theme_classic() +
-  dark_theme_classic() +
-  scale_color_viridis_d(option = "inferno", begin = 0.25) +
-  xlim(0, 40) +
-  ylim(0, 100) +
-  labs(
-    x = expression(T[leaf] ~ "[°C]"),
-    y = expression(A[net] ~ "[%]"),
-    color = "Warming [°C]"
-  )
-
-# Arctic Example
-df_curves_no %>% 
-  dplyr::filter(str_detect(sitename, "jens")) %>%
-  ggplot() +
-  geom_vline(aes(xintercept = temp + 13, color = warming),
-             size = 2,
-             alpha = 0.75) +
-  geom_line(aes(tc_leaf, anet_scaled, group = warming)) +
-  # theme_classic() +
-  dark_theme_classic() +
-  scale_color_viridis_d(option = "inferno", begin = 0.25) +
-  xlim(0, 40) +
-  ylim(0, 100) +
-  labs(
-    x = expression(T[leaf] ~ "[°C]"),
-    y = expression(A[net] ~ "[%]"),
-    color = "Warming [°C]"
-  )
-
-# Adaptation __________________
-# Tropical Example
-df_curves_full %>% 
-  dplyr::filter(str_detect(sitename, "slot")) %>% 
-  dplyr::mutate(anet_scaled = ifelse(warming == 0, anet_scaled, NA)) %>% 
-  ggplot() +
-  geom_vline(aes(xintercept = temp, color = warming),
-             size = 2,
-             alpha = 0.75) +
-  geom_line(aes(tc_leaf, anet_scaled, group = warming)) +
-  dark_theme_classic() +
-  scale_color_viridis_d(option = "inferno", begin = 0.25) +
-  xlim(0, 40) +
-  ylim(0, 100) +
-  labs(
-    x = expression(T[leaf] ~ "[°C]"),
-    y = expression(A[net] ~ "[%]"),
-    color = "Warming [°C]"
-  )
-
-# Arctic Example
-df_curves_full %>% 
-  dplyr::filter(str_detect(sitename, "tar")) %>% 
-  dplyr::mutate(anet_scaled = ifelse(warming == 0, anet_scaled, NA)) %>% 
-  ggplot() +
-  geom_vline(aes(xintercept = temp-10, color = warming),
-             size = 2,
-             alpha = 0.75) +
-  geom_line(aes(tc_leaf-7, anet_scaled, group = warming)) +
-  dark_theme_classic() +
-  scale_color_viridis_d(option = "inferno", begin = 0.25) +
-  xlim(0, 40) +
-  ylim(0, 100) +
-  labs(
-    x = expression(T[leaf] ~ "[°C]"),
-    y = expression(A[net] ~ "[%]"),
-    color = "Warming [°C]"
-  )
-
-
-# Acclimation __________________
-# Tropical Example
-df_curves_full %>% 
-  dplyr::filter(str_detect(sitename, "slot")) %>% 
-  # dplyr::filter(warming %in% c(0, 5)) %>%
-  ggplot() +
-  geom_vline(aes(xintercept = temp, color = warming),
-             size = 2,
-             alpha = 0.75) +
-  geom_line(aes(tc_leaf, anet_scaled, group = warming, color = warming)) +
-  # facet_wrap(~warming, ncol = 1) +
-  dark_theme_classic() +
-  scale_color_viridis_d(option = "inferno", begin = 0.25) +
-  xlim(0, 40) +
-  ylim(0, 100) +
-  labs(
-    x = expression(T[leaf] ~ "[°C]"),
-    y = expression(A[net] ~ "[%]"),
-    color = "Warming [°C]"
-  )
-
-# Arctic Example
-df_curves_full %>% 
-  dplyr::filter(str_detect(sitename, "tar")) %>% 
-  # dplyr::filter(warming %in% c(0, 5)) %>%
-  ggplot() +
-  geom_vline(aes(xintercept = temp - 10, color = warming),
-             size = 2,
-             alpha = 0.75) +
-  geom_line(aes(tc_leaf - 10, anet_scaled, group = warming, color = warming)) +
-  # facet_wrap(~warming, ncol = 1) +
-  dark_theme_classic() +
-  scale_color_viridis_d(option = "inferno", begin = 0.25) +
-  xlim(0, 40) +
-  ylim(0, 100) +
-  labs(
-    x = expression(T[leaf] ~ "[°C]"),
-    y = expression(A[net] ~ "[%]"),
-    color = "Warming [°C]"
-  )
-
-### Relative scale only - dark mode ----
-# Get data
-df_long <- 
-  rbind(df_fullacc_temporal,
-        df_fullacc_spatial,
-        df_noacc) %>% 
-  mutate(
-    across(
-      setup, factor, 
-      levels=c("noacc", "fullacc_spatial", "fullacc_temporal"))) %>% 
-  dplyr::filter(
-    # warming %in% c(0, 2, 4)
-    # warming %in% c(0, 5)
-  )
-
-# Make plot
-## Presave scales
-p_facet <- 
-  facet_wrap(~setup,
-             nrow = 1,
-             labeller = as_labeller(c(
-               'noacc'  = "Fixed",
-               'fullacc_spatial'   = "Adaptation",
-               'fullacc_temporal'  = "Acclimation"
-             )))
-
-p_fill <- 
-  scale_fill_viridis_d(
-    "Warming [°C]: ",
-    option = "inferno",
-    begin = 0.25,
-    # labels = c("+0", "+5"),
-    labels = c("+0", "+1", "+2", "+3", "+4", "+5"),
-    guide = guide_legend(
-      override.aes = list(
-        # shape = c(21, 21)
-        shape = c(21, 21, 21, 21, 21, 21)
-      )
-    )
-  )
-
-p_shape <- 
-  scale_shape_manual(
-    "Ecosystem: ",
-    labels = c("Arctic", "Temperate", "Boreal", "Tropical"),
-    values = c(22, 21, 25, 24),
-    guide = guide_legend(
-      nrow   = 2,
-      byrow  = TRUE,
-      override.aes = list(
-        shape = c(21, 24, 22, 25),
-        color  = c("white", "white", "white", "white")))
-  )
-
-p_theme <- 
-  dark_theme_linedraw(base_size = 14) +
-  theme(
-    # legend.position = c(0.9, 0.05),
-    # legend.justification = c(1, 0),
-    # legend.position = "bottom",
-    # strip.background =element_rect(fill="white"),
-    # strip.text = element_text(colour = 'black', face = "bold"),
-    panel.grid = element_blank(),
-    plot.subtitle = element_text(hjust = 0, face = "bold"),
-    strip.text = element_text(face = "bold"),
-    plot.title = element_text(hjust = 0.5, size = 14))
-
-p_relative <-
-  df_long %>% 
-  ggplot() +
-  
-  # > Geoms
-  aes(
-    y = rel_red_aopt*100,
-    # y = agrowth,
-    # x = delta_t
-    x = temp
-  ) +
-  geom_path(
-    aes(
-      group = site_id
-    )
-  ) +
-  geom_point(
-    aes(
-      fill = as.factor(warming),
-      shape = site_id,
-    ),
-    size = 2.5) +
-  
-  # > Legend and colors
-  p_shape +
-  p_fill  +
-  p_facet +
-  p_theme +
-  # ylim(40, 100) +
-  # xlim(-15, 15) +
-  labs(y = expression(A[net] ~ "at" ~ T[growth] ~ "[% of"~ A[opt] ~ "]"),
-       # x = expression(T[opt] ~ "-" ~ T[growth] ~ "[°C]")
-       x = expression(T[growth] ~ "[°C]"),
-       subtitle = NULL
-       # subtitle = expression(bold("Trajectories of" ~ A[net] ~ "under warming"))
-  )
-
-p_relative
-
-ggdark::invert_geom_defaults()
+# df_long <- 
+#   rbind(df_fullacc_temporal, 
+#         df_noacc,
+#         df_er) %>% 
+#   mutate(
+#     across(
+#       setup, factor, 
+#       levels=c("noacc", "er", "fullacc_temporal")))
+# 
+# p <-
+#   df_long %>% 
+#   ggplot() +
+#   
+#   # > Geoms
+#   aes(
+#     # y = rel_red_aopt*100,
+#     y = agrowth,
+#     # x = delta_t
+#     x = temp
+#   ) +
+#   geom_path(
+#     aes(
+#       group = site_id
+#     )
+#   ) +
+#   geom_point(
+#     aes(
+#       fill = as.factor(warming),
+#       shape = site_id,
+#     ),
+#     size = 2.5) +
+#   facet_wrap(~setup,
+#              nrow = 1,
+#              labeller = as_labeller(c(
+#                'fullacc_temporal'  = "Full Acclimation",
+#                'noacc'  = "No Acclimation",
+#                'er' = "ER"
+#              ))) +
+# 
+#   # > Legend and colors
+#   theme_linedraw() +
+#   theme(
+#     # legend.position = c(0.9, 0.05),
+#     # legend.justification = c(1, 0),
+#     # legend.position = "bottom",
+#     # strip.background =element_rect(fill="white"),
+#     # strip.text = element_text(colour = 'black', face = "bold"),
+#     panel.grid = element_blank(),
+#     strip.text = element_text(face = "bold"),
+#     plot.title = element_text(hjust = 0.5, size = 14)) +
+#   scale_fill_viridis_d(
+#     "Warming [°C]: ",
+#     option = "viridis",
+#     labels = c("+0", "+1", "+2", "+3", "+4", "+5"),
+#     guide = guide_legend(
+#       override.aes = list(
+#         shape = c(21, 21, 21, 21, 21, 21)
+#       )
+#     )
+#   ) +
+#   scale_shape_manual(
+#     "Climate Zone: ",
+#     labels = c("Arctic", "Temperate", "Boreal", "Tropical"),
+#     values = c(22, 21, 25, 24),
+#     guide = guide_legend(
+#       override.aes = list(
+#         shape = c(21, 24, 22, 25),
+#         fill  = c("black", "black", "black", "black")))
+#     ) +
+#   
+#   # > Layout
+#   # ylim(40, 100) +
+#   # xlim(-15, 15) +
+#   labs(y = expression(A[net] ~ "at" ~ T[growth] ~ " as percentage of " ~ A[opt] ~ "[%]"),
+#        x = expression(T[opt] ~ "-" ~ T[growth] ~ "[°C]"),
+#        # x = expression(T[growth] ~ "[°C]"),
+#        subtitle = expression(bold("Trajectories of" ~ A[net] ~ "under warming")))
+# 
+# ggsave(paste0(dir_figs, "/trajectory-agrowth_vs_deltat.pdf"),
+#        p,
+#        height = 4,
+#        width = 12)
+# 
+# df_tmp_4 <- df_long %>% group_split(setup)
+# 
+# for (i in 1:length(df_tmp_4)) {
+#   
+#   cat("\n-----------------\n",
+#       "Setup: ", as.character(df_tmp_4[[i]]$setup)[1])
+#   
+#   df_tmp_5 <- df_tmp_4[[i]] %>% group_split(site_id)
+#   
+#   for (j in 1:length(df_tmp_5)) {
+#     
+#     cat("\n Site: ", df_tmp_5[[j]]$site_id[[1]],
+#         "    d Anet = ", round(abs(max(df_tmp_5[[j]]$rel_red_aopt - min(df_tmp_5[[j]]$rel_red_aopt))), 2))
+#   }
+# }
