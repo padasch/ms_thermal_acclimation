@@ -49,7 +49,7 @@ change_time_res <- function(df_in,                    # input df_drivers()
   # df_in <- df$forcing[[1]]
   # vars  <- df_in %>% select_if(~is.numeric(.x)) %>% names()
   
-  ## Todo:
+  ## Improvements:
   # - Could add sanity checks so that nrow(df_input)/24 = nrow(df_out)
   # - Could improve the max-function to return the mean of the highest four values of each variable
   
@@ -244,6 +244,9 @@ get_settings <- function(){
 k19_create_df_forcing <- function(settings) {
   
   ## Check if down-scaled and dampened forcing already exists
+  dir_tmp <- here("data/tmp")
+  if (!dir.exists(dir_tmp)) dir.create(dir_tmp, recursive = T, showWarnings = F)
+  
   fln <- paste0(here("data", "tmp"), "/k19_df_forc_", settings$daily_conditions, settings$tau, ".rds")
   
   ## Redo forcing if this function has been updated recently
@@ -365,12 +368,8 @@ k19_run_acc <- function(df_site_date, settings) {
     unnest(any_of(c("settings", "siteinfo", "forcing_growth")))
   
   if (("temp" %in% names(df_tmp))) {
-    df_tmp <- df_tmp %>% rename(tc_air = temp) # TODO: This check is due to unproper naming in rpmodel routine
+    df_tmp <- df_tmp %>% rename(tc_air = temp) # This check is due to unproper naming in rpmodel routine
   }
-  
-  # if (!("wind" %in% names(df_tmp))) {
-  #     df_tmp <- df_tmp %>% mutate(wind = NA) # TODO: This should be checked before if wind is missing
-  # }
   
   df_tmp <-
     df_tmp %>%
@@ -984,7 +983,7 @@ k19_from_forc_to_plot <- function(settings,
   if (debug_slice) settings$save_plots <- F
   
   ## First check if this model setup has been run before today:
-  dir_path  <- here("output", "model_runs")     
+  dir_path  <- here("output", "base_plots","model_runs")     
   dir_setup <- paste0(
     "setup",
     "__FORC__", settings$daily_conditions, settings$tau,
@@ -997,7 +996,7 @@ k19_from_forc_to_plot <- function(settings,
   dir.create(dir_model, recursive = T, showWarnings = F)
   
   # Make directory to save basic plots
-  dir_now <- here("output", "figures", "base_plots", today(), dir_setup)
+  dir_now <- here("output", "base_plots", today(), dir_setup)
   settings$dir_now <- dir_now
   
   dir.create(settings$dir_now, recursive = T, showWarnings = F)
@@ -1148,7 +1147,8 @@ standard_error <- function(x) {
 plot_topt_extraction <- function(df_in,
                                  add_simulation = F,
                                  dir = "automatic",
-                                 make_one_plot = F) {
+                                 make_one_plot = F,
+                                 called_from_wrangling = F) {
   
   # This function plots the observed A_net-T curves,
   # based on the extracted parabola fit and its metrics.
@@ -1157,7 +1157,7 @@ plot_topt_extraction <- function(df_in,
   # Create directory if inexistent
   if (dir == "automatic") {
     # Save it
-    directory <- here("output", "figures", "tc_opt_extraction")
+    directory <- here("output", "wrangling_experimental_data",  "figures")
   } else {
     directory <- here(dir)
   }
@@ -1372,8 +1372,10 @@ plot_topt_extraction <- function(df_in,
     p_all <- p_all + plot_layout(plot_ncol)
     
     # Save Plot
-    # ggsave(paste0(directory, "all_sites_in_one.pdf"), p_all, width = 32, height = 15, units = "in")
-    # message("Big plot was saved under: ", directory)
+    if (called_from_wrangling) {
+      ggsave(paste0(directory, "/all_sites_in_one.pdf"), p_all, width = 32, height = 15, units = "in")
+      message("Big plot was saved under: ", directory)
+    }
     
     return(list(p_big_plot = p_all))
   }
@@ -3132,6 +3134,7 @@ plot_all_for_one_model <- function(df_plot, title_1 = "model_1") {
 
 
 ## Analysis-specific ----
+### Isolated acclimation processes ----
 plot_iso_acc_modobs <- function(trait,
                                 p_noacc_scaled,
                                 p_fullacc,
@@ -3489,7 +3492,374 @@ table_acclimation_contributions <- function(trait,
   return(list(tab_red, tab_acc_capa))
 }
 
+### Seasonality of Traits ----
+run_inst_for_365_days <- function(df_acc, 
+                                  settings, 
+                                  setup,
+                                  dir_mods,
+                                  set_add,
+                                  step_size_tcair   = 0.5) {
+  
+  df_tmp  <- tibble()
+  
+  ## Take average ppfd across all measurements (is ca. 1500umol/m2/s which is light-saturated)
+  ppfd_data <- 
+    df_acc %>% 
+    unnest(meas_cond) %>% 
+    pull(PARi) %>% 
+    mean(., na.rm = T) *
+    1e-6
+  
+  if (set_add$high_light) ppfd_data <- 2000e-6
+  
+  for (i in 1:nrow(df_acc)) {
+    # print(i)
+    
+    df_i <-  tibble(tc_leaf  = seq(step_size_tcair, 40, step_size_tcair), 
+                    tc_air   = NA)
+    
+    df_i$sitename <- df_acc$sitename[[i]]
+    df_i$date     <- df_acc$date[[i]]
+    
+    df_i$patm     <- df_acc$forcing_d[[i]]$patm
+    df_i$co2      <- df_acc$forcing_d[[i]]$co2
+    df_i$tc_air   <- df_acc$forcing_d[[i]]$temp
+    df_i$ppfd     <- ppfd_data
+    vpd           <- df_acc$forcing_d[[i]]$vpd
+    
+    if (set_add$vpd_scaled) {
+      df_i$vpd  <- 
+        VPDleafToAir(
+          vpd / 1000,
+          df_i$tc_air,
+          df_i$tc_leaf,
+          df_i$patm / 1000
+        ) * 1000
+      
+      df_i$vpd <- ifelse(df_i$vpd > 10, df_i$vpd,  10) # If scaled larger than 100, take scaled, else take 100  
+    } else {
+      df_i$vpd <- vpd
+    }
+    
+    df_i <- df_i %>% nest(forcing_inst = !any_of(c("sitename", "date")))
+    df_tmp <- rbind(df_tmp, df_i)
+  }
+  
+  ## Attach to df_acc again
+  df_acc <-
+    df_acc %>% 
+    left_join(df_tmp)
+  
+  ## Extract relevant variables for instant response
+  df_tmp <-
+    df_acc %>%
+    mutate(settings = list(as_tibble(settings))) %>% 
+    mutate(tc_home           = purrr::map_dbl(siteinfo,       ~pull(., tc_home)),
+           ppfd_measurement  = purrr::map_dbl(siteinfo,       ~pull(., ppfd_measurement)),
+           tc_growth_air  = purrr::map_dbl(forcing_growth, ~pull(., temp)),
+           tc_growth_leaf = purrr::map_dbl(rpm_acc,        ~pull(., tc_leaf)),
+           kphio          = purrr::map_dbl(rpm_acc,        ~pull(., kphio  )),
+           vcmax25        = purrr::map_dbl(rpm_acc,        ~pull(., vcmax25)),
+           rd25           = purrr::map_dbl(rpm_acc,        ~pull(., rd25)),
+           jmax25         = purrr::map_dbl(rpm_acc,        ~pull(., jmax25)),
+           xi             = purrr::map_dbl(rpm_acc,        ~pull(., xi))) %>%
+    dplyr::select(-any_of(c("meas_cond", "fit_opt", "rpm_acc", "forcing_growth",
+                            "forcing_d", "data_org", "fit_opt", "siteinfo"))) %>% 
+    unnest(c("settings", "forcing_inst"))  %>% 
+    mutate(id = row_number(), # Have to add a row_id for 1-by-1 feeding of inputs
+           method_eb = "off") # To ensure EB is *not* called here
+  
+  ## Remove sites where vcmax or jmax were predicted to be zero
+  df_tmp <-
+    df_tmp %>% 
+    dplyr::filter(vcmax25 != 0, jmax25 != 0)
+  
+  ## Run instantaneous response
+  df_rpm_inst <-
+    df_tmp %>% 
+    nest(inputs = !any_of(c("sitename", "date", "id"))) %>%
+    rowwise() %>%
+    mutate(rpm_inst = rpmodel_inst(inputs) %>%
+             as_tibble() %>%
+             list()
+    ) %>%
+    ungroup()
+  
+  df_inst <-
+    df_rpm_inst %>% 
+    mutate(
+      tc_growth_air  = purrr::map_dbl(inputs, ~pull(., tc_growth_air )),
+      tc_growth_leaf = purrr::map_dbl(inputs, ~pull(., tc_growth_leaf)),
+      # Round to nearest 0.5 to extract fitting A_growth
+      # tc_growth_air = round(tc_growth_air/0.5)*0.5,
+      # tc_growth_leaf = round(tc_growth_leaf/0.5)*0.5,
+    ) %>%
+    # dplyr::select(-inputs, -id) %>% 
+    unnest(rpm_inst) %>% 
+    nest(rpm_inst = !all_of(c("sitename", "date"))) %>% 
+    mutate(
+      tc_opt        = purrr::map_dbl(rpm_inst, ~ slice_max(., anet)   %>% pull(tc_leaf)),
+      tc_opt_agross = purrr::map_dbl(rpm_inst, ~ slice_max(., agross) %>% pull(tc_leaf)),
+      tc_opt_ac     = purrr::map_dbl(rpm_inst, ~ slice_max(., ac)     %>% pull(tc_leaf)),
+      tc_opt_aj     = purrr::map_dbl(rpm_inst, ~ slice_max(., aj)     %>% pull(tc_leaf)),
+      
+      min_a         = purrr::map_chr(rpm_inst, ~ slice_max(., anet)   %>% pull(min_a)),
+      min_a         = as.factor(min_a),
+      
+      agross_opt    = purrr::map_dbl(rpm_inst, ~ slice_max(., agross) %>% pull(agross) * 1e6),
+      anet_opt      = purrr::map_dbl(rpm_inst, ~ slice_max(., anet) %>% pull(anet) * 1e6),
+      
+      anet_growth   = 0, # purrr::map_dbl(rpm_inst, ~ dplyr::filter(., tc_growth_air == tc_leaf) %>% pull(anet) * 1e6),
+      min_agrowth   = "ac", # purrr::map_chr(rpm_inst, ~ dplyr::filter(., tc_growth_air == tc_leaf) %>% pull(min_a)),
+      min_agrowth   = "ac", # as.factor(min_agrowth),
+      
+      tspan_l       = purrr::map_dbl(rpm_inst, 
+                                     ~ dplyr::filter(., anet > (0.9 * max(anet))) %>% 
+                                       slice_min(tc_leaf) %>% 
+                                       pull(tc_leaf)),
+      tspan_h       = purrr::map_dbl(rpm_inst, 
+                                     ~ dplyr::filter(., anet > (0.9 * max(anet))) %>% 
+                                       slice_max(tc_leaf) %>% 
+                                       pull(tc_leaf)),
+      tspan          = tspan_h - tspan_l
+    ) %>%
+    nest(rpm_sim = !all_of(c("sitename", "date", "rpm_inst"))) %>%
+    right_join(df_acc)
+  
+  tmp_dir <- here(dir_mods, setup)
+  if (!dir.exists(here(tmp_dir))) dir.create(tmp_dir, recursive = T, showWarnings = F)
+  
+  saveRDS(df_inst, paste0(tmp_dir, "/df_inst.rds"))
+  return(df_inst)
+}
 
+
+temporal_individual_plots <- function(df_inst,
+                                      setup,
+                                      min_topt_per_year = 3,
+                                      dir_figs) {
+  
+  # Define variables
+  vec_cols <- c(RColorBrewer::brewer.pal(3, "Dark2")[1],
+                RColorBrewer::brewer.pal(3, "Dark2")[3],
+                RColorBrewer::brewer.pal(3, "Dark2")[2])
+  
+  facet_cols <- ifelse(min_topt_per_year == 3, 1, 2) 
+  p_height      <- ifelse(min_topt_per_year == 3, 8, 12)
+  p_width       <- ifelse(min_topt_per_year == 3, 6,12)
+  
+  # Topt
+  p_topt <- 
+    df_inst %>% 
+    rename(mod = rpm_sim, obs = fit_opt) %>% 
+    unnest(c(mod, obs), names_sep = "_") %>% 
+    unnest(c(forcing_growth)) %>% 
+    pivot_longer(cols = c(mod_tc_opt, temp), names_to = "tc", values_to = "tc_value") %>% 
+    ggplot() +
+    # theme_linedraw() +
+    aes(x = date) +
+    geom_line(aes(y = tc_value, color = tc)) +
+    geom_errorbar(aes(ymin = obs_tc_opt - obs_tc_opt_se, ymax = obs_tc_opt + obs_tc_opt_se, y = obs_tc_opt, color = "obs_tc_opt"), size = 0.75) +
+    geom_point(aes(y = obs_tc_opt, color = "obs_tc_opt"), size = 1.5) +
+    facet_wrap(~site_year, ncol = facet_cols , scales = "free") +
+    scale_color_manual(
+      name = NULL,
+      breaks = c("mod_tc_opt", 
+                 "temp",
+                 "obs_tc_opt"),
+      labels = c(bquote("Mod." ~ T[opt]), 
+                 bquote(T[growth]),
+                 bquote("Obs." ~ T[opt])),
+      values = vec_cols,
+      guide = guide_legend(
+        # label.position = "bottom",
+        # frame.colour = "black",
+        override.aes = list(shape = c(NA, NA, 16),
+                            size = c(1, 1, 1.5),
+                            linetype = c(1, 1, 0),
+                            # fill = c("black", "grey", "white"),
+                            color = vec_cols))) +
+    ylim(0, 40) +
+    labs(y = bquote("Temperature [°C]"),
+         x = "Date")
+  
+  ggsave(paste0(dir_figs, "/", setup, "_topt_fig.pdf"), p_topt, height = p_height, width = p_width)
+  
+  p_topt <- 
+    df_inst %>% 
+    rename(mod = rpm_sim, obs = fit_opt) %>% 
+    unnest(c(mod, obs), names_sep = "_") %>% 
+    unnest(c(forcing_growth)) %>% 
+    pivot_longer(cols = c(mod_tc_opt, temp), names_to = "tc", values_to = "tc_value") %>% 
+    ggplot() +
+    # theme_linedraw() +
+    aes(x = date) +
+    geom_line(aes(y = tc_value, color = tc)) +
+    geom_errorbar(aes(ymin = obs_tc_opt - obs_tc_opt_se, ymax = obs_tc_opt + obs_tc_opt_se, y = obs_tc_opt, color = "obs_tc_opt"), size = 0.75) +
+    geom_point(aes(y = obs_tc_opt, color = "obs_tc_opt"), size = 1.5) +
+    facet_wrap(~site_year, ncol = facet_cols , scales = "free") +
+    scale_color_manual(
+      name = NULL,
+      breaks = c("mod_tc_opt", 
+                 "temp",
+                 "obs_tc_opt"),
+      labels = c(bquote("Mod." ~ T[opt]), 
+                 bquote(T[growth]),
+                 bquote("Obs." ~ T[opt])),
+      values = vec_cols,
+      guide = guide_legend(
+        # label.position = "bottom",
+        # frame.colour = "black",
+        override.aes = list(shape = c(NA, NA, 16),
+                            size = c(1, 1, 1.5),
+                            linetype = c(1, 1, 0),
+                            # fill = c("black", "grey", "white"),
+                            color = vec_cols))) +
+    ylim(0, 40) +
+    labs(y = bquote("Temperature [°C]"),
+         x = "Date") +
+    theme_linedraw()
+  
+  ggsave(paste0(dir_figs, "/", setup, "topt_fig.pdf"), p_topt, height = p_height, width = p_width)
+  
+  p_aopt <- 
+    df_inst %>% 
+    rename(mod = rpm_sim, obs = fit_opt) %>% 
+    unnest(c(mod, obs), names_sep = "_") %>% 
+    unnest(c(forcing_growth)) %>% 
+    pivot_longer(cols = c(mod_anet_opt, temp), names_to = "tc", values_to = "tc_value") %>% 
+    ggplot() +
+    # theme_linedraw() +
+    aes(x = date) +
+    geom_line(aes(y = tc_value, color = tc)) +
+    geom_errorbar(aes(ymin = obs_anet_opt - obs_anet_opt_se, ymax = obs_anet_opt + obs_anet_opt_se, y = obs_anet_opt, color = "obs_anet_opt"), size = 0.75) +
+    geom_point(aes(y = obs_anet_opt, color = "obs_anet_opt"), size = 1.5) +
+    facet_wrap(~site_year, ncol = facet_cols , scales = "free") +
+    scale_color_manual(
+      name = NULL,
+      breaks = c("mod_anet_opt", 
+                 "temp",
+                 "obs_anet_opt"),
+      labels = c(bquote("Mod." ~ A[opt] ~ "[µmol" ~ m ^-2 ~ s ^-1 ~ "]"), 
+                 bquote(T[growth] ~ A[opt] ~ "[°C]"),
+                 bquote("Obs." ~ A[opt] ~ "[µmol" ~ m ^-2 ~ s ^-1 ~ "]")),
+      values = vec_cols,
+      guide = guide_legend(
+        override.aes = list(shape = c(NA, NA, 16),
+                            size = c(1, 1, 1.5),
+                            linetype = c(1, 1, 0),
+                            # fill = c("black", "grey", "white"),
+                            color = vec_cols))) +
+    ylim(0, 40) +
+    labs(y = bquote(A[opt] ~ "[µmol" ~ m ^-2 ~ s ^-1 ~ "]"),
+         x = "Date") +
+    theme_linedraw()
+  
+  ggsave(paste0(dir_figs, "/", setup, "aopt_fig.pdf"), p_aopt, height = p_height, width = p_width)
+  
+  p_tspan <- 
+    df_inst %>% 
+    rename(mod = rpm_sim, obs = fit_opt) %>% 
+    unnest(c(mod, obs), names_sep = "_") %>% 
+    unnest(c(forcing_growth)) %>% 
+    pivot_longer(cols = c(mod_tspan, temp), names_to = "tc", values_to = "tc_value") %>% 
+    ggplot() +
+    # theme_linedraw() +
+    aes(x = date) +
+    geom_line(aes(y = tc_value, color = tc)) +
+    geom_point(aes(y = obs_tspan, color = "obs_tspan"), size = 1.5) +
+    facet_wrap(~site_year, ncol = facet_cols , scales = "free") +
+    scale_color_manual(
+      name = NULL,
+      breaks = c("mod_tspan", 
+                 "temp",
+                 "obs_tspan"),
+      labels = c(bquote("Mod." ~ T[span]), 
+                 bquote(T[growth]),
+                 bquote("Obs." ~ T[span])),
+      values = vec_cols,
+      guide = guide_legend(
+        # label.position = "bottom",
+        # frame.colour = "black",
+        override.aes = list(shape = c(NA, NA, 16),
+                            size = c(1, 1, 1.5),
+                            linetype = c(1, 1, 0),
+                            # fill = c("black", "grey", "white"),
+                            color = vec_cols))) +
+    ylim(0, 40) +
+    labs(y = bquote("Temperature [°C]"),
+         x = "Date") +
+    theme_linedraw()
+  
+  ggsave(paste0(dir_figs, "/", setup, "aopt_fig.pdf"), p_tspan, height = p_height, width = p_width)
+  
+  # Old Plots without T_grwoth
+  # # Aopt
+  # p_aopt <- 
+  #   df_inst %>% 
+  #   rename(mod = rpm_sim, obs = fit_opt) %>% 
+  #   unnest(c(mod, obs), names_sep = "_") %>% 
+  #   unnest(c(forcing_growth, rpm_acc)) %>% 
+  #   ggplot() +
+  #   # theme_linedraw() +
+  #   aes(x = date) +
+  #   geom_line(aes(y = mod_anet_opt, color = "mod")) +
+  #   geom_errorbar(aes(ymin = obs_anet_opt - obs_anet_opt_se, ymax = obs_anet_opt + obs_anet_opt_se, y = obs_anet_opt, color = "obs"), size = 0.75) +
+  #   geom_point(aes(y = obs_anet_opt, color = "obs"), size = 1.5) +
+  #   facet_wrap(~site_year, ncol = facet_cols , scales = "free") +
+  #   scale_color_manual(
+  #     name = NULL,
+  #     breaks = c("mod",
+  #                "obs"),
+  #     labels = c(bquote("Mod." ~ A[opt]), 
+  #                bquote("Obs." ~ A[opt])),
+  #     values = c(vec_cols[1], vec_cols[3])) +
+  #   ylim(0, 40) +
+  #   labs(y = bquote(A[opt] ~ "[µmol" ~ m ^-2 ~ s ^-1 ~ "]"),
+  #        x = "Date")
+  # 
+  # ggsave(paste0(dir_figs, "/", setup, "aopt_fig.pdf"), p_aopt, height = p_height, width = p_width)
+  # 
+  # # Tspan
+  # p_tspan <- 
+  #   df_inst %>% 
+  #   rename(mod = rpm_sim, obs = fit_opt) %>% 
+  #   unnest(c(mod, obs), names_sep = "_") %>% 
+  #   unnest(c(forcing_growth)) %>% 
+  #   ggplot() +
+  #   # theme_linedraw() +
+  #   aes(x = date) +
+  #   geom_line(aes(y = mod_tspan, color = "mod")) +
+  #   geom_point(aes(y = obs_tspan, color = "obs"), size = 1.5) +
+  #   facet_wrap(~site_year, ncol = facet_cols , scales = "free") +
+  #   scale_color_manual(
+  #     name = NULL,
+  #     breaks = c("mod",
+  #                "obs"),
+  #     labels = c(bquote("Mod." ~ T[span]), 
+  #                bquote("Obs." ~ T[span])),
+  #     values = c(vec_cols[1], vec_cols[3])) +
+  #   ylim(0, 40) +
+  #   labs(y = bquote("Temperature [°C]"),
+  #        x = "Date")
+  # 
+  # ggsave(paste0(dir_figs, "/", setup, "tspan_fig.pdf"), p_tspan, height = p_height, width = p_width)
+  
+  ## All three
+  p_all <- 
+    (p_topt + p_aopt + p_tspan) +
+    plot_layout(ncol = 3) &
+    theme(legend.position = "bottom")
+  
+  ggsave(paste0(dir_figs, "/", setup, "all.pdf"), p_all, height = 14, width = 14)
+  
+  return(list(
+    p_topt = p_topt,
+    p_aopt = p_aopt,
+    p_tspan = p_tspan,
+    p_all = p_all)
+  )
+}
 
 ## Global Maps ----
 add_climatezone_to_siteinfo <- function(df_in){
