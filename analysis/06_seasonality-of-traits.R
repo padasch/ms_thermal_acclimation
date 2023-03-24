@@ -742,7 +742,6 @@ p_facet <-
 
 
 ggsave(paste0(dir_figs, "seasonality_noacc-fullacc-facet.pdf"), p_facet, width = 12, height = 16)
-ggsave(here("output/figures/0_final/temporal_traits.pdf"), p_facet, width = 12, height = 16)
 
 
 # ├— Plots (other checks) ------------------------------------------

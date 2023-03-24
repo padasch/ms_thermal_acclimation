@@ -347,6 +347,8 @@ p_final_tspan <-
   theme(legend.position = "bottom") &
   plot_annotation(subtitle = bquote("Effect of" ~ varphi[0] ~ "on" ~ T[span]))
 
+sub_dir <- here("output/additional_analyses/calibration/kphio")
+
 ggsave(paste0(sub_dir, "/000_topt.pdf"), p_final_topt, height = 4, width = 4)
 ggsave(paste0(sub_dir, "/000_aopt.pdf"), p_final_aopt, height = 4, width = 4)
 # ggsave(paste0(sub_dir, "/000_agro.pdf"), p_final_agro, height = 4, width = 4)
@@ -711,7 +713,7 @@ p_aopt <-
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 
-ggsave(paste0(dir_tmp, "/vpd_approach/aopt_comparison.pdf"),
+ggsave(paste0(dir_tmp, "/aopt_comparison.pdf"),
        p_aopt,
        height = 5,
        width  = 12)
@@ -723,7 +725,7 @@ p_tspan <-
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 
-ggsave(paste0(dir_tmp, "/vpd_approach/tspan_comparison.pdf"),
+ggsave(paste0(dir_tmp, "/tspan_comparison.pdf"),
        p_tspan,
        height = 5,
        width  = 12)
@@ -753,7 +755,7 @@ ggsave(paste0(dir_tmp, "/vpd_approach_comparison.pdf"),
 
 # ├ Growth Conditions as Instant Forcing ----
 dir_tmp <- here("output/additional_analyses/growth_forcing_as_instant/")
-if (!dir.exists(tmp_dir)) dir.create(tmp_dir, recursive = T, showWarnings = F)
+if (!dir.exists(dir_tmp)) dir.create(dir_tmp, recursive = T, showWarnings = F)
 
 settings <- get_settings()
 settings$daily_conditions <- "B"
