@@ -42,9 +42,9 @@ vignettes/*.pdf
 /archive/
 /output/
 /tests/
-/data/climate_zones/
-/data/final/
-/data/tmp/
+/data/climate_zones/*
+/data/raw/*
+/data/tmp/*
 /docs/
 
 # MacOS
