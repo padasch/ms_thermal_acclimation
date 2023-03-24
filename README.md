@@ -61,5 +61,5 @@ This repository includes all code, data, and instructions to reproduce the paper
 -   `03_model_sensitivity_analysis.R` conducts the model sensitivity analysis.
 -   `04_isolated_processes.R` runs all model setups with none, some, and all acclimation processes; and creates respective outputs.
 -   `05_warming_trajectories.R` runs warming trajectories for one representative site per climate zone for the different model setups; and creates respective outputs.
--   `06_additional_analyses.R` runs additional analyses and tests to support results (e.g., verification of VPD-scaling approach).
--   `07_seasonality-of-traits.R` runs seaonal prediction of thermal acclimation.
+-   `06_seasonality-of-traits.R` runs seaonal prediction of thermal acclimation.
+-   `07_additional_analyses.R` runs additional analyses and tests to support results (e.g., verification of VPD-scaling approach).
