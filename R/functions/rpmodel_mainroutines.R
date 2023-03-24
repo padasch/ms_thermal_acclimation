@@ -108,7 +108,7 @@ rpmodel <- function(inputs){
     # 1. Analytical Model ----
       
     ## No energy balance accounting, assume tc_leaf = tc_air
-    tc_leaf <- tc_air
+    if ("tc_leaf" %in% add_missing) {tc_leaf <- tc_air}
         
     ## Rescale VPD to tc_leaf 
     vpd <- VPDairToLeaf(vpd/1000, tc_air, tc_leaf, patm/1000)*1000
@@ -256,11 +256,7 @@ rpmodel <- function(inputs){
 #__________________________________________________________________________________________________#
 # Instantaneous Response ----
 rpmodel_inst <- function(inputs, make_checks = T) {
-    # Todo ----
-    # Do I need "tc_growth_leaf" in here at all? I do not think so..
-    # Maybe I should skip checks to save computational costs?
-    
-    #__________________________________________________________________________________________________#
+  
     ## 0. Check Input ----
     if (make_checks) {
         inp_vars <- names(inputs)
@@ -375,7 +371,7 @@ rpmodel_inst <- function(inputs, make_checks = T) {
     # __________________________________________________________________________________________________#
     ## 1. Analytical Model ----
     ## Without energy balance accounting, assume tc_leaf = tc_air
-    inputs$tc_leaf <- inputs$tc_air
+    if ("tc_leaf" %in% add_missing) {inputs$tc_leaf <- inputs$tc_air}
   
     ## Photosynthetic parameters
     if (inputs$do_ftemp_theta) {
