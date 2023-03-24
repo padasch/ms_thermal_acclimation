@@ -30,13 +30,13 @@ This repository includes all code, data, and instructions to reproduce the paper
 
 1.  Download required data
 
-2.  Download [ACi-TGlob_V1.0](https://figshare.com/articles/dataset/ACi-TGlob_V1_0_A_Global_dataset_of_photosynthetic_CO2_response_curves_of_terrestrial_plants_/7283567) and add it to `data/raw/.`
+    1.  Download [ACi-TGlob_V1.0](https://figshare.com/articles/dataset/ACi-TGlob_V1_0_A_Global_dataset_of_photosynthetic_CO2_response_curves_of_terrestrial_plants_/7283567) and add it to `data/raw/.`
 
-3.  From the bitbucket repository [photom](https://bitbucket.org/Kumarathunge/photom/src/master/), download the two files `Arctic_A-Ci_curves_2012-2015_V2.csv` and `SPRUCE_3_cohort_ACi_data.csv`. Place them under `data/raw/files_from_photom_repo/.`
+    2.  From the bitbucket repository [photom](https://bitbucket.org/Kumarathunge/photom/src/master/), download the two files [`Arctic_A-Ci_curves_2012-2015_V2.csv`](https://bitbucket.org/Kumarathunge/photom/raw/d015fd064de78288a1d07abbbd99f02e13a81e8b/Data/Arctic_A-Ci_curves_2012-2015_V2.csv) and [`SPRUCE_3_cohort_ACi_data.csv`](https://bitbucket.org/Kumarathunge/photom/raw/d015fd064de78288a1d07abbbd99f02e13a81e8b/Data/SPRUCE_3_cohort_ACi_data.csv). Place them under `data/raw/files_from_photom_repo/.`
 
-4.  For plotting global maps, download the GIS observed data from 1976-2000 of the [Koeppen-Geiger Climate Zones](http://koeppen-geiger.vu-wien.ac.at/shifts.htm) (see bottom of page). Place them under `data/climate_zones/.`
+    3.  For plotting global maps, download the GIS observed data from 1976-2000 of the [Koeppen-Geiger Climate Zones](http://koeppen-geiger.vu-wien.ac.at/shifts.htm) (see bottom of page). Place them under `data/climate_zones/.`
 
-5.  Setting up the R environment
+2.  Setting up the R environment
 
     1.  Make sure to have [{renv}](https://rstudio.github.io/renv/articles/renv.html) installed
 
@@ -46,11 +46,13 @@ This repository includes all code, data, and instructions to reproduce the paper
 
     4.  Run `source("R/source.R")` to load all packages and functions. Make sure that all required packages are installed.
 
-6.  Run code to generate raw files for analysis
+3.  Run code to generate raw files for analysis
 
-7.  `01_wrangling_ACi-TGlob_V1.0.R` wrangles the raw data and creates the final dataset used in the remaining analysis.
+    1.  `01_wrangling_ACi-TGlob_V1.0.R` wrangles the raw data and creates the final dataset used in the remaining analysis.
 
-8.  The file `02_cluster_script_ingestr.R` produces file `data/final/k19_df_forc_from cluster.rds` which holds all climatic data necessary for the analysis. The code relies on large datasets (WorldClim, WATCH-WFDE5, ETOPO) that may not be accessible, so we provide `k19_df_forc_from cluster.rds` directly in the repo.
+    2.  The file `02_cluster_script_ingestr.R` produces file `data/final/k19_df_forc_from cluster.rds` which holds all climatic data necessary for the analysis. The code relies on large datasets (WorldClim, WATCH-WFDE5, ETOPO) that may not be accessible, so we provide `k19_df_forc_from cluster.rds` directly in the repo.
+
+    3.  The remainder of files produces the results from different analyses as explained below.
 
 ### Description of files for reproducing results
 
