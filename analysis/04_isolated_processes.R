@@ -198,23 +198,24 @@ add_labels <-
     fontface = 'bold', 
     size = 4)
 
-ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-noacc_scaled.pdf"), p_noacc_scaled$p_scaled_cl_2 + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-fullacc.pdf"), p_fullacc$p_scaled_cl_2 + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-er.pdf"), p_er$p_scaled_cl_2 + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-sb.pdf"), p_sb$p_scaled_cl_2 + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-pc.pdf"), p_pc$p_scaled_cl_2 + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-er_pc.pdf"), p_er_pc$p_scaled_cl_2 + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-er_sb.pdf"), p_er_sb$p_scaled_cl_2 + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-sb_pc.pdf"), p_sb_pc$p_scaled_cl_2 + add_labels, height = 5, width = 12)
+# Curves
+ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-noacc_scaled.pdf"), p_noacc_scaled$p_scaled_cl_2 + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-fullacc.pdf"), p_fullacc$p_scaled_cl_2 + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-er.pdf"), p_er$p_scaled_cl_2 + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-sb.pdf"), p_sb$p_scaled_cl_2 + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-pc.pdf"), p_pc$p_scaled_cl_2 + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-er_pc.pdf"), p_er_pc$p_scaled_cl_2 + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-er_sb.pdf"), p_er_sb$p_scaled_cl_2 + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/curve-shape-per-climate-sb_pc.pdf"), p_sb_pc$p_scaled_cl_2 + add_labels, height = 5, width = 10)
 
-ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-noacc_scaled.pdf"), p_noacc_scaled$p_scaled_cl_2_parab + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-fullacc.pdf"), p_fullacc$p_scaled_cl_2_parab + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-er.pdf"), p_er$p_scaled_cl_2_parab + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-sb.pdf"), p_sb$p_scaled_cl_2_parab + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-pc.pdf"), p_pc$p_scaled_cl_2_parab + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-er_pc.pdf"), p_er_pc$p_scaled_cl_2_parab + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-er_sb.pdf"), p_er_sb$p_scaled_cl_2_parab + add_labels, height = 5, width = 12)
-ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-sb_pc.pdf"), p_sb_pc$p_scaled_cl_2_parab + add_labels, height = 5, width = 12)
+ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-noacc_scaled.pdf"), p_noacc_scaled$p_scaled_cl_2_parab + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-fullacc.pdf"), p_fullacc$p_scaled_cl_2_parab + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-er.pdf"), p_er$p_scaled_cl_2_parab + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-sb.pdf"), p_sb$p_scaled_cl_2_parab + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-pc.pdf"), p_pc$p_scaled_cl_2_parab + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-er_pc.pdf"), p_er_pc$p_scaled_cl_2_parab + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-er_sb.pdf"), p_er_sb$p_scaled_cl_2_parab + add_labels, height = 5, width = 10)
+ggsave(here(dir_figs, "response_curves_per_climate/parabola_curve-shape-per-climate-sb_pc.pdf"), p_sb_pc$p_scaled_cl_2_parab + add_labels, height = 5, width = 10)
 
 # Traits
 ggsave(here(dir_figs, "traits_vs_tgrowth/traits-tgrowth_noacc_scaled.pdf"), p_noacc_scaled$p_traits + plot_annotation(subtitle = "No acc."), height = 4, width = 8)
@@ -225,9 +226,6 @@ ggsave(here(dir_figs, "traits_vs_tgrowth/traits-tgrowth_pc.pdf"), p_pc$p_traits 
 ggsave(here(dir_figs, "traits_vs_tgrowth/traits-tgrowth_er_pc.pdf"), p_er_pc$p_traits + plot_annotation(subtitle = "ER + PC"), height = 4, width = 8)
 ggsave(here(dir_figs, "traits_vs_tgrowth/traits-tgrowth_er_sb.pdf"), p_er_sb$p_traits + plot_annotation(subtitle = "ER + SB"), height = 4, width = 8)
 ggsave(here(dir_figs, "traits_vs_tgrowth/traits-tgrowth_sb_pc.pdf"), p_sb_pc$p_traits + plot_annotation(subtitle = "SB + PC"), height = 4, width = 8)
-
-## For supplementary
-ggsave(here("output/figures/0_final/curve-shape-per-climate-l02.pdf"), p_noacc_scaled$p_scaled_cl_2, height = 5, width = 10)
 
 ## Tables ----
 # Topt - Tgrowth
