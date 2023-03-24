@@ -1,27 +1,15 @@
 # Wrangling of ACi-TGlob V1.0 Dataset ----
-# TODO: Add explanation what QC according to K19 means, maybe also where date was found when linking to K19
 
-
-## 1. Source Packages ----
-library(here)
-source(here("R", "source.R"))
-
-## 2. Download Data ----
-# TODO: Add code to download dataset and add it to data/raw/...
-
-## 3. Load Raw Data ----
+## Load Raw Data ----
 df_raw <- read_csv(here("data", "raw", "ACi-TGlob", "ACi-TGlob_V1.0.csv"))
 
-## 4. Checking validity of data ----
-# TODO: Change lat-lon information for sites landing in water
+## Checking validity of data ----
 df_raw <- 
     df_raw %>% 
     ## Correcting wronlgy spelled names
     mutate(Data_contributor = ifelse(str_detect(Data_contributor, "Cater"), "Kelsey Carter", Data_contributor))
 
-## 5. Filter Raw Data ----
-# TODO: Should I filter only for mature plants and hold-out saplings? 
-#       Information is in docx in ACi-TGlob but not in the csv itself
+## Filter Raw Data ----
 
 df_tmp <- df_raw %>%
   dplyr::filter(
@@ -42,7 +30,7 @@ df_tmp <- df_raw %>%
   arrange(sitename)
 
 #_______________________________________________________________________________
-## Unifying sampling dates ----
+### Unifying sampling dates ----
 df_battaglia_43147 <-
   df_tmp[which(df_tmp$sitename == "battaglia_43147"), ]     %>%
   unnest(data) %>%
@@ -76,7 +64,7 @@ df_cernusak_14131 <-
   mutate(sample_date = dmy(Date)) %>% 
   nest(data = !all_of(c("sitename")))
 
-# TODO: Dates missing and not findable in any doucment on photom repository or referenced publication
+# Dates missing and not findable in any doucment on photom repository or referenced publication
 df_crous_34151 <- 
   df_tmp[which(df_tmp$sitename == "crous_34151"), ] %>%
     unnest(data) %>%
@@ -199,7 +187,7 @@ df_slot_980 <-
 df_tarvainen_5812  <- 
   df_tmp[which(df_tmp$sitename == "tarvainen_5812"), ]  %>% 
   unnest(data) %>% 
-  # TODO: Date reconstruction very vague, only reported as period in K19 data
+  # Date reconstruction very vague, only reported as period in K19 data
   mutate(sample_date = Date,
          sample_date = ifelse(str_detect(Date, "Jun-10"),       paste0("2010-06-15"), sample_date),
          sample_date = ifelse(str_detect(Date, "Jun-sep-2009"), paste0("2009-08-01"), sample_date),
@@ -215,7 +203,7 @@ df_tarvainen_6420  <-
 df_togashi_30121  <- 
   df_tmp[which(df_tmp$sitename == "togashi_30121"), ]  %>% 
   unnest(data) %>% 
-  # TODO: Could not identify any clear date information (not in original data, not in publication)
+  # Could not identify any clear date information (not in original data, not in publication)
   mutate(sample_date = dmy(Date)) %>% 
   nest(data = !all_of(c("sitename")))
 
@@ -274,7 +262,7 @@ cat("\n Data points without given date BEFORE unifying dates: ", per_dates_pre, 
     "\n Data points without given date AFTER  unifying dates: ", per_dates_post, " %")
 
 #__________________________________________________________________________________________________#
-## 6. T_opt data ----
+## T_opt data ----
 
 ### General Filtering ----
 # Remove data outside reasonable CO2 range (250-450ppm)
@@ -341,7 +329,7 @@ df_carter_1866 <-
 df_cavaleri_1866 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "cavaleri_1866")) %>%
-  # TODO: Removed data from 13/08/2014 because it is has a flat rate of GPP over all temperatures (could be done in the end?)
+  # Removed data from 13/08/2014 because it is has a flat rate of GPP over all temperatures
   # filter(!str_detect(date, "13/08/2014")) %>%
   mutate( # agg_date = sample_date) %>% # Take daily values
     agg_date = floor_date(sample_date, unit = "week") # Flooring to week
@@ -397,7 +385,7 @@ df_crous_34151 <-
 df_ellsworth_3679 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "ellsworth_3679")) %>%
-  dplyr::filter(between(CO2S, 340, 370)) %>% # QC according to code in repository by K19
+  dplyr::filter(between(CO2S, 340, 370)) %>% # QC according to code in photom repository code
   mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
@@ -412,7 +400,7 @@ df_ellsworth_3679 <-
 #### han_35139 ----
 df_han_35139 <- df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "han_35139")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(between(CO2S, 330, 350)) %>%
   mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -429,7 +417,7 @@ df_han_35139 <- df_tmp_date_flt %>%
 df_han_36140 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "han_36140")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(between(Ci, 175, 230)) %>%
   mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -446,7 +434,7 @@ df_han_36140 <-
 df_hikosaka_43142 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "hikosaka_43142")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(
     between(CO2S, 360, 375),
     !(Curve_Id %in% c(108:110, 115:117))
@@ -466,7 +454,7 @@ df_hikosaka_43142 <-
 df_jensen_4893 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "jensen_4893")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(between(CO2R, 395, 410)) %>%
   mutate(agg_date = sample_date) %>% # agg_date = floor_date(sample_date, unit = "month")) %>% # Flooring to week
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -483,7 +471,7 @@ df_jensen_4893 <-
 df_kelly_16145 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "kelly_16145")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(between(CO2R, 375, 425), Ci > 175) %>%
   mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -500,7 +488,7 @@ df_kelly_16145 <-
 df_medlyn_355 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "medlyn_355")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(between(Ci, 175, 350), Curve_Id != 62) %>%
   mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -517,7 +505,7 @@ df_medlyn_355 <-
 df_medlyn_36148 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "medlyn_36148")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(PARi > 1200, Cond > 0.09) %>%
   mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -534,7 +522,7 @@ df_medlyn_36148 <-
 df_medlyn_441 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "medlyn_441")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(between(Ci, 175, 350), Curve_Id != 62) %>%
   mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -552,7 +540,7 @@ df_medlyn_441 <-
 df_onoda_41141 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "onoda_41141")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(Photo < 8.2, between(Ci, 250, 350)) %>%
   mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -569,7 +557,7 @@ df_onoda_41141 <-
 df_rogers_71157 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "rogers_71157")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(between(CO2S, 370, 410)) %>%
   mutate(agg_date = round_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -601,7 +589,7 @@ df_slot_980 <-
 df_tarvainen_5812 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "tarvainen_5812")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(between(CO2R, 395, 405)) %>%
   mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -618,7 +606,7 @@ df_tarvainen_5812 <-
 df_tarvainen_6420 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "tarvainen_6420")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(between(CO2R, 395, 405)) %>%
   mutate(agg_date = floor_date(sample_date, unit = "week")) %>% # Flooring to week
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -635,7 +623,7 @@ df_tarvainen_6420 <-
 df_togashi_30121 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "togashi_30121")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(between(CO2R, 365, 435), !(Curve_Id %in% c(19, 23, 27, 44))) %>%
   mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -652,7 +640,7 @@ df_togashi_30121 <-
 df_tribuzy_360 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "tribuzy_360")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(between(CO2R, 365, 435), !(Curve_Id %in% c(19, 23, 27, 44))) %>%
   mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -669,7 +657,7 @@ df_tribuzy_360 <-
 df_wang_6331 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "wang_6331")) %>%
-  # QC according to code by K19 in photom repository
+  # QC according to code in photom repository code
   dplyr::filter(between(Ci, 240, 400)) %>%
   mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
@@ -712,7 +700,7 @@ df_pre_qc <-
   
 
 #__________________________________________________________________________________________________#
-## 7. Quality Control ----
+## Quality Control ----
 ## Filter datasets based on goodness-of-fit
 df_post_qc <- 
     df_pre_qc %>% 
@@ -770,11 +758,11 @@ if (T %in% c(df_post_qc$id %in% df_dropped$id, df_dropped$id %in% df_post_qc$id)
 cat("Number of points removed through QC: ", nrow(df_dropped), "out of total: ", nrow(df_pre_qc))
 
 ## Make plots of final thermal response curves
-dir_1 <- here("output", "figures", "tc_opt_extraction", "final_sites")
-dir_2 <- here("output", "figures", "tc_opt_extraction", "dropped_sites")
+dir_1 <- here("output", "wrangling_experimental_data", "final_sites")
+dir_2 <- here("output", "wrangling_experimental_data", "dropped_sites")
 
-big_plot_qc      <- plot_topt_extraction(df_post_qc, make_one_plot = T, dir = dir_1)
-big_plot_dropped <- plot_topt_extraction(df_dropped, make_one_plot = T, dir = dir_2)
+big_plot_qc      <- plot_topt_extraction(df_post_qc, make_one_plot = T, dir = dir_1, called_from_wrangling = T)
+big_plot_dropped <- plot_topt_extraction(df_dropped, make_one_plot = T, dir = dir_2, called_from_wrangling = T)
 
 #_______________________________________________________________________________
 ## Adding Siteinfo
@@ -883,7 +871,7 @@ filn <- here("data", "final", "k19_sitename_siteinfo_sitedata.rds")
 saveRDS(df_final, filn)
 
 
-## 8. Analysis of cleaned data ----
+## Analysis of cleaned data ----
 ### Load df with processed data ----
 df_final <- readRDS(here("data", "final", "k19_sitename_siteinfo_sitedata.rds"))
 
@@ -945,161 +933,3 @@ dir_tmp <- here("output/metadata")
 if (!dir.exists(dir_tmp)) dir.create(dir_tmp, recursive = T, showWarnings = F)
 
 write.csv(tab_meta, paste0(dir_tmp, "/si_site-metadata.csv"), row.names = FALSE)
-
-## 9. Get forcing data ----
-#__________________________________________________________________________________________________#
-### Euler Code to Extract Forcing ----
-# 2022-07-01: This code in in file `./R/rscript_ingest_siteinfo `
-# Save final df_forc to data/final!
-#__________________________________________________________________________________________________#
-
-### Finalize forcing dataframe ----
-df_forc_tmp <- readRDS("data/final/k19_df_forc_from cluster.rds")
-
-## Attach CO2 on annual basis
-df_forc_tmp2 <-
-    df_forc_tmp %>% 
-    unnest(forcing) %>% 
-    left_join(ingest(siteinfo = df_forc_tmp %>% 
-                         unnest(siteinfo) %>% 
-                         dplyr::select(-forcing),
-                     source  = "co2_mlo",
-                     verbose = FALSE,
-                     timescale = "h") %>% 
-                  unnest(data) %>% 
-                  dplyr::select(-year)
-    ) %>% 
-    nest(forcing = !any_of(c("sitename", "siteinfo")))
-
-## Calculate MAT and MAP per site and calculate leaf size
-df_forc_tmp3 <-
-    df_forc_tmp2 %>% 
-    unnest(forcing) %>% 
-    mutate(year = year(date),
-           month = month(date))  %>% 
-    nest(forcing_month = !any_of(c("sitename", "siteinfo", "year", "month"))) %>%
-    mutate(tc_mean_month = purrr::map_dbl(forcing_month, ~pull(., temp) %>% mean(na.rm = T))) %>% 
-    unnest(forcing_month) %>% 
-    nest(forcing_year = !any_of(c("sitename", "siteinfo", "year"))) %>% 
-    mutate(map   = purrr::map_dbl(forcing_year, ~pull(., prec) %>% mean(na.rm = T)),
-           map   = map * 60*60*24,
-           tc_wm = purrr::map_dbl(forcing_year, ~pull(., tc_mean_month) %>% max())) %>% 
-    rowwise() %>% 
-    mutate(leaf_width = calc_leaf_size(tc_wm, map),
-           leaf_width = sqrt(leaf_width)/100) %>% 
-    unnest(forcing_year) %>% 
-    dplyr::select(-year, -month) %>% 
-    nest(forcing_hh = !any_of(c("sitename", "siteinfo")))
-
-## Save final forcing df for further analysis
-saveRDS(df_forc_tmp3, here("data", "final", "k19_sitename_siteinfo_forcing_hh.rds"))
-
-#_______________________________________________________________________________
-# Extraction of Vcmax ----
-#' I have to extract all the values
-#' I have to take an average based on sampling dates
-#' Then I can predict these vcmax values based on sampling dates and compare them
-#' For this I need:
-#'   - Vcmax instant from data
-#'   - Tleaf instant from data
-#'   - Vcmax acc from rpmodel
-#'   - Tgrowth (and Thome) from climate data
-#'   - I do not even have to look at the sampling-date average because we
-#'     are predicting instant vcmax depending on the leaf temperature 
-#'     they were measured on! I only need the sampling date for calculating the
-#'     acclimated Vcmax values. But from these values I can then predict inst
-#'     vcmax using the parametrization by Kumarathunge et al. directly from 
-#'     T_growth to instant T_leaf.
-#'     OR I could downscale either to vcmax25 using the parametrization BUT
-#'     I should not use the plantecophys::fitaci() option that returns Vcmax25,
-#'     I should rather use Vcmax at the given leaf temperature directly.
-#_______________________________________________________________________________
-
-## Nest dataframe by curves
-df_curves <-
-  df_tmp_date %>%
-  unnest(data) %>% 
-  ## Nest original data by A-Ci curve
-  nest(curve_data = !any_of(c("sitename", "sample_date", "Curve_number"))) %>% 
-  ## Drop sites without sampling dates
-  drop_na(sample_date) %>% 
-  arrange(Curve_number)
-
-## Loop through curves and extract aci fits
-df_acifits <- tibble()
-
-for (i in 1:nrow(df_curves)) {
-  
-  df_i <- df_curves %>% slice(i)
-  message("> i = ", i, "/", nrow(df_curves), " | ", df_i$sitename, " ", df_i$sample_date, " ", df_i$Curve_number)
-
-  try_out <- try(
-    df_i <-
-      df_i %>%
-      mutate(fitaci = purrr::map(curve_data, ~ fitaci(.,
-        fitmethod = "bilinear",
-        Tcorrect = F
-      ))),
-    silent = T
-  )
-
-  if (inherits(try_out, "try-error")) {
-    df_i$fitaci_qc <- F
-    df_i$fitaci <- NA
-  } else {
-    df_i$fitaci_qc <- T
-  }
-  
-  df_acifits <- rbind(df_acifits, df_i)
-}
-
-cat("\n Percentage of failed acifits: ",
-    round((df_acifits %>% dplyr::filter(fitaci_qc == F) %>% nrow())/
-      (df_acifits %>% nrow()), 2)*100, " %")
-
-# Extract and summarize traits to site and sample_date level
-df_traits <-
-  df_acifits %>% 
-  ## Remove curves where fitaci-function failed:
-  dplyr::filter(fitaci_qc == T) %>% 
-  ## Extract values for instant vcmax, jmax and mean leaf temperature
-  mutate(
-    fit_tleaf = purrr::map_dbl(fitaci, ~ mean(.$df$Tleaf, na.rm = T)),
-    fit_vcmax = purrr::map_dbl(fitaci, ~ .$pars[[1]] * 1e-6),
-    fit_jmax  = purrr::map_dbl(fitaci, ~ .$pars[[2]] * 1e-6),
-    fit_rmse  = purrr::map_dbl(fitaci, ~ .$RMSE * 1e-6)
-    # fit_vcmax_se    = purrr::map_dbl(fitaci, ~.$pars[[4]] * 1e-6),
-    # fit_jmax_se     = purrr::map_dbl(fitaci, ~.$pars[[5]] * 1e-6),
-  ) %>%
-  ## Aggregate data to date of aggregation and attach mean values for
-  ## photosynthetic traits to fit_opt
-  unnest(curve_data) %>% 
-  nest(site_date_data = !all_of(c("sitename", "sample_date"))) %>% 
-  mutate(tleaf = purrr::map_dbl(site_date_data, ~mean(.$fit_tleaf, na.rm = T)),
-         tleaf_se = purrr::map_dbl(site_date_data, ~standard_error(.$fit_tleaf)),
-         vcmax = purrr::map_dbl(site_date_data, ~mean(.$fit_vcmax, na.rm = T)),
-         vcmax_se = purrr::map_dbl(site_date_data, ~standard_error(.$fit_vcmax)),
-         jmax = purrr::map_dbl(site_date_data, ~mean(.$fit_jmax, na.rm = T)),
-         jmax_se = purrr::map_dbl(site_date_data, ~standard_error(.$fit_jmax)),
-         rmse = purrr::map_dbl(site_date_data, ~mean(.$fit_rmse, na.rm = T))) %>% 
-  nest(traits_data = !all_of(c("sitename", "sample_date", "site_date_data")))
-
-# Attach siteinfo from above
-df_traits <-
-  df_traits %>% 
-  inner_join(df_final %>% dplyr::select(sitename, siteinfo) %>% distinct())
-
-
-# Vcmax Analyis -----------------------------------------------------------
-df_traits %>% 
-  unnest(traits_data) %>% 
-  ggplot() +
-  geom_boxplot(aes(x = vcmax, y = sitename)) +
-  geom_point(aes(x = vcmax, y = sitename, fill = rmse), shape = 21)
-
-
-# Save rd files
-saveRDS(df_traits %>% dplyr::select(-site_date_data), here("data", "final", "traits_without_raw_data.rds"))
-# saveRDS(df_traits, here("data", "final", "traits_with_raw_data.rds")) # Outcommented because takes too much time
-
-## End of Script ___________________________________________________________________________________
