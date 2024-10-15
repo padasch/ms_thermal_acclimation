@@ -48,7 +48,7 @@ calc_aj <- function(kphio, ppfd, jmax, gammastar, ci = NA, ca, fapar, theta = 0.
         ci <- QUADM(A, B, C)
     }
     
-    aj   <- j/4 * (ci - gammastar)/(ci + 2 * gammastar)
+    aj   <- j/4 * (ci)/(ci + 2 * gammastar)
     
     out = list(aj   = aj,
                j    =  j,
@@ -226,7 +226,7 @@ calc_ftemp_inst_vcmax <- function( tcleaf, tcgrowth = NA, tcref = 25.0, method_f
   tkref  <- tcref + 273.15  # to Kelvin
   tkleaf <- tcleaf + 273.15  # conversion of temperature to Kelvin, tcleaf is the instantaneous leaf temperature in degrees C.
   
-  if (method_ftemp %in% c("kattge07", "kumarathunge19")) {
+  if (method_ftemp %in% c("kattge07", "kumarathunge19", "kumarathunge19_fixed")) {
   
     # Kattge2007 Parametrization
     Hd     <- 200000 # deactivation energy (J/mol)
@@ -234,22 +234,30 @@ calc_ftemp_inst_vcmax <- function( tcleaf, tcgrowth = NA, tcref = 25.0, method_f
     a_ent <- 668.39 # offset of entropy vs. temperature relationship from Kattge & Knorr (2007) (J/mol/K)
     b_ent <- 1.07   # slope of entropy vs. temperature relationship from Kattge & Knorr (2007) (J/mol/K^2)
     
-    if (method_ftemp == "kumarathunge19"){
-        # Kumarathunge2019 Implementation:
-        # local parameters
-        a_ent = 645.13 # offset of entropy vs. temperature relationship (J/mol/K)
-        b_ent = 0.38   # slope  of entropy vs. temperature relationship (J/mol/K^2)
-        
-        # local variables
-        Ha = 42600 + (1140 * tcgrowth) # Acclimation for vcmax
+    if (stringr::str_detect(method_ftemp, "kumarathunge19")) {
+
+      if (stringr::str_detect(method_ftemp, "_fixed")) {
+        # Method to remove acclimation effect from K19 parametrization
+        # message("\t ... using fixed K19 for ER")
+        tcgrowth <- get_avg_tc_growth()
+      }
+      
+      # Kumarathunge2019 Implementation:
+      # local parameters
+      a_ent = 645.13 # offset of entropy vs. temperature relationship (J/mol/K)
+      b_ent = 0.38   # slope  of entropy vs. temperature relationship (J/mol/K^2)
+      
+      # local variables
+      Ha = 42600 + (1140 * tcgrowth) # Acclimation for vcmax
     }
     
     # calculate entropy following Kattge & Knorr (2007), negative slope and y-axis intersect is when expressed as a function of temperature in degrees Celsius, not Kelvin !!!
-    dent <- a_ent - (b_ent * tcgrowth)  # 'tcgrowth' corresponds to 'tmean' in Nicks, 'tc25' is 'to' in Nick's
+    dent <- a_ent - (b_ent * tcgrowth)
     
     fva <- calc_ftemp_arrh( tkleaf, Ha, tkref = tkref )
     fvb <- (1 + exp( (tkref * dent - Hd)/(Rgas * tkref) ) ) / (1 + exp( (tkleaf * dent - Hd)/(Rgas * tkleaf) ) )
     fv  <- fva * fvb
+    
   } else if (method_ftemp == "leuning02") {
     # Ref: Leuning, R. (2002). Temperature dependence of two parameters in a photosynthesis model. Plant, Cell & Environment, 25(9), 1205–1210. https://doi.org/10.1046/j.1365-3040.2002.00898.x
     # Table 2:
@@ -259,11 +267,11 @@ calc_ftemp_inst_vcmax <- function( tcleaf, tcgrowth = NA, tcref = 25.0, method_f
     
     term_1 <- 1 + exp( (Sv * tkref  - Hd) / (Rgas * tkref) ) 
     term_3 <- 1 + exp( (Sv * tkleaf - Hd) / (Rgas * tkleaf) )
-    term_2 <- exp((Ha / (Rgas * tkref)) * (1 - tkref/tkleaf)) # Careful: In Eq. (1) in Leuning et al. (1992), there is a bracket missing in this term!
+    term_2 <- exp((Ha / (Rgas * tkref)) * (1 - tkref/tkleaf)) # Careful: In Eq. (1) in Leuning et al. (2002), there is a bracket missing in this term!
 
     fv <- term_1 * term_2 / term_3
   } else {
-    stop("Invalid method_ftemp.")
+    stop("Invalid method_ftemp:", method_ftemp)
   }
     
     return( fv )
@@ -278,7 +286,7 @@ calc_ftemp_inst_jmax <- function( tcleaf, tcgrowth, tchome = NA, tcref = 25.0, m
   tkref <- tcref + 273.15  # to Kelvin
   tkleaf <- tcleaf + 273.15  # conversion of temperature to Kelvin, tcleaf is the instantaneous leaf temperature in degrees C.
   
-  if (method_ftemp %in% c("kattge07", "kumarathunge19")) {
+  if (method_ftemp %in% c("kattge07", "kumarathunge19", "kumarathunge19_fixed")) {
       
     # Kattge2007 Parametrization
     Hd    <- 200000 # deactivation energy (J/mol)
@@ -287,18 +295,25 @@ calc_ftemp_inst_jmax <- function( tcleaf, tcgrowth, tchome = NA, tcref = 25.0, m
     b_ent <- 0.75   # slope of entropy vs. temperature relationship from Kattge & Knorr (2007) (J/mol/K^2)
     
     # calculate entropy following Kattge & Knorr (2007), negative slope and y-axis intersect is when expressed as a function of temperature in degrees Celsius, not Kelvin !!!
-    dent <- a_ent - b_ent * tcgrowth   # 'tcgrowth' corresponds to 'tmean' in Nicks, 'tc25' is 'to' in Nick's
+    dent <- a_ent - b_ent * tcgrowth
     
     if(method_ftemp == "kumarathunge19"){
-        # Kumarathunge2019 Implementation:
-        # local parameters
-        Ha    = 40710  # activation energy (J/mol)
-        a_ent = 658.77 # offset of entropy vs. temperature relationship (J/mol/K)
-        b_ent = 0.84   # slope of entropy vs. temperature relationship (J/mol/K^2)
-        c_ent = 0.52   # 2nd slope of entropy vs. temperature (J/mol/K^2)
-        
-        # Entropy calculation, equations given in Celsius, not in Kelvin
-        dent = a_ent - (b_ent * tchome) - c_ent * (tcgrowth - tchome)
+      
+      if (stringr::str_detect(method_ftemp, "_fixed")) {
+        # Method to remove acclimation effect from K19 parametrization
+        tcgrowth <- get_avg_tc_growth()
+        # tchome   <- get_avg_tc_home()
+      }  
+      
+      # Kumarathunge2019 Implementation:
+      # local parameters
+      Ha    = 40710  # activation energy (J/mol)
+      a_ent = 658.77 # offset of entropy vs. temperature relationship (J/mol/K)
+      b_ent = 0.84   # slope of entropy vs. temperature relationship (J/mol/K^2)
+      c_ent = 0.52   # 2nd slope of entropy vs. temperature (J/mol/K^2)
+      
+      # Entropy calculation, equations given in Celsius, not in Kelvin
+      dent = a_ent - (b_ent * tchome) - c_ent * (tcgrowth - tchome)
     }
     
     fva <- calc_ftemp_arrh( tkleaf, Ha, tkref = tkref )
@@ -702,6 +717,16 @@ VPDairToLeaf <- function(VPD, Tair, Tleaf, Pa=101){
   return(vpd/1000)
 }
 
+VPDleafToAir <- function(VPD, Tleaf, Tair, Pa = 101) {
+  
+  # This function was adopted from the R package 'plantecophys'  
+  # Duursma (2015) https://doi.org/10/bkmj.
+  
+  e <- esat(Tleaf, Pa) - VPD * 1000
+  vpd <- esat(Tair, Pa) - e
+  return(vpd/1000)
+}
+
 VPDtoRH <- function(VPD, TdegC, Pa=101){
   # This function was adoted from the R package 'plantecophys'  
   # Duursma (2015) https://doi.org/10/bkmj.
@@ -726,4 +751,28 @@ esat <- function(TdegC, Pa=101){
   f <- 1.0007 + 3.46 * 10^-8 * Pa * 1000
   esatval <- f * a * (exp(b * TdegC/(c + TdegC)))
   return(esatval)
+}
+
+# Quadratic solution
+QUADM <- function(A,B,C){
+  
+  if (any(is.na(c(A,B,C)))){
+    return(NA)
+  } else {
+    if((B^2 - 4*A*C) < 0){
+      warning("IMAGINARY ROOTS IN QUADRATIC")
+      return(0)
+    }
+    
+    if(identical(A,0)){
+      if(identical(B,0)){
+        return(0)
+      } else {
+        return(-C/B)
+      }
+    } else {
+      return((- B - sqrt(B^2 - 4*A*C)) / (2*A))
+    }
+  }
+  
 }

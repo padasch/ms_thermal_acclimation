@@ -16,6 +16,7 @@ turn_dfplot_into_dfdelta <- function(df_plot,
            delta_a_abs = abs(delta_a),
            agrowth     = anet,
            rel_red_aopt= 1 - (rpm_sim_anet_opt - anet) / rpm_sim_anet_opt,
+           aopt        = rpm_sim_anet_opt,
            setup       = as.factor(setup))
   
   if (setup == "obs") {
@@ -35,6 +36,7 @@ turn_dfplot_into_dfdelta <- function(df_plot,
           "delta_a",
           "delta_a_abs",
           "rel_red_aopt",
+          "aopt",
           "setup",
           "temp",
           "warming", 

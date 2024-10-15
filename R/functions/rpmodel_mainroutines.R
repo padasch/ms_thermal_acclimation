@@ -387,6 +387,9 @@ rpmodel_inst <- function(inputs, make_checks = T) {
     vcmax <- inputs$vcmax25 * calc_ftemp_inst_vcmax(inputs$tc_leaf, inputs$tc_growth_air, tcref = 25.0, method_ftemp = inputs$method_ftemp)
     jmax  <- inputs$jmax25  * calc_ftemp_inst_jmax(inputs$tc_leaf, inputs$tc_growth_air, inputs$tc_home, tcref = 25.0, method_ftemp = inputs$method_ftemp)
     
+    # Debug
+    # cat(" Tleaf: ", round(inputs$tc_leaf), " Tgrowth: ", inputs$tc_growth_air, "  Scalar: ", calc_ftemp_inst_vcmax(inputs$tc_leaf, inputs$tc_growth_air, method_ftemp = inputs$method_ftemp), " Vcmax25: ", inputs$vcmax25, " Vcmax: ",vcmax, "\n")
+    
     # Instantaneous leaf-internal CO2: ci
     ci <- calc_ci(ca, gammastar, inputs$xi, inputs$vpd, inputs$patm, inputs$method_ci)
     

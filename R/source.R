@@ -16,7 +16,7 @@ all_pkgs <- c(
   "patchwork", # Visualizing data
   "ggpmisc",   # Adding linear regression info to ggplots
   # "ggrepel",   # Avoid overlapping label
-  "rgdal",
+  # "rgdal",
   "raster",
   
   # "ggmap",
@@ -57,3 +57,6 @@ load_rfiles_in_dir <- function(dir_) {
 }
 
 load_rfiles_in_dir(here::here("R/functions/"))
+conflicted::conflict_prefer("select", "dplyr")
+conflicted::conflicts_prefer(dplyr::filter)
+conflicted::conflicts_prefer(ggplot2::annotate)

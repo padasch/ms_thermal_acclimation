@@ -269,21 +269,6 @@ k19_create_df_forcing <- function(settings) {
     saveRDS(df_forc, fln)
   }
   
-  # Bugfix: The data from medlyn_355 and medlyn_441 are different provenances grown at the same location
-  # This is no accounted for when creating the forcing, so is fixed now
-  # Concerns siteinfo and all forcings
-  # 441: True location, 355: False location
-  
-  # Check if data is in df_forc. If so drop it and add new row with same location data
-  if ("medlyn_355" %in% df_forc$sitename) {
-    df_forc_new  <- df_forc # Temporary df
-    medtrue      <- df_forc_new |> filter(sitename == "medlyn_441") # Extract 441 data
-    medtrue$sitename <- "medlyn_355" # Rename data
-    df_forc_new <- df_forc_new |> filter(sitename != "medlyn_355") # Drop 355 data
-    df_forc_new <- rbind(df_forc_new, medtrue) # Attach 441 data
-    df_forc <- df_forc_new # Overwrite old df_forc df
-  }
-  
   return(df_forc)
 }
 
@@ -326,38 +311,11 @@ k19_create_input_for_acc <- function(settings, df_forc = NA) {
         unnest(forcing_growth)) %>% 
     nest(forcing_growth = all_of(climate_vars))
   
-  # Bugfix: Attach missing climate data from previous year
-  han_df <- df_site_date[which(df_site_date$sitename == "han_35139" & df_site_date$date == "2002-05-12"),]
-  tar_df <- df_site_date[which(df_site_date$sitename == "tarvainen_5812" & df_site_date$date == "2009-07-26"),]
-  
-  if (nrow(han_df) > 0) {
-    if (df_site_date[which(df_site_date$sitename == "han_35139" & df_site_date$date == "2001-07-15"),] |> nrow() > 0) {
-      df_site_date[which(df_site_date$sitename == "han_35139" & df_site_date$date == "2001-07-15"),]$siteinfo       <- han_df$siteinfo
-      df_site_date[which(df_site_date$sitename == "han_35139" & df_site_date$date == "2001-07-15"),]$forcing_d      <- han_df$forcing_d
-      df_site_date[which(df_site_date$sitename == "han_35139" & df_site_date$date == "2001-07-15"),]$forcing_growth <- han_df$forcing_growth
-    }
-    
-    if (df_site_date[which(df_site_date$sitename == "han_35139" & df_site_date$date == "2001-11-11"),] |> nrow() > 0) {
-      df_site_date[which(df_site_date$sitename == "han_35139" & df_site_date$date == "2001-11-11"),]$siteinfo       <- han_df$siteinfo
-      df_site_date[which(df_site_date$sitename == "han_35139" & df_site_date$date == "2001-11-11"),]$forcing_d      <- han_df$forcing_d
-      df_site_date[which(df_site_date$sitename == "han_35139" & df_site_date$date == "2001-11-11"),]$forcing_growth <- han_df$forcing_growth
-    }
-  }
-  
-  if (nrow(tar_df) > 0 ) {
-    if (df_site_date[which(df_site_date$sitename == "tarvainen_5812" & df_site_date$date == "2010-06-13"),] |> nrow() > 0) {
-    df_site_date[which(df_site_date$sitename == "tarvainen_5812" & df_site_date$date == "2010-06-13"),]$siteinfo       <- tar_df$siteinfo
-    df_site_date[which(df_site_date$sitename == "tarvainen_5812" & df_site_date$date == "2010-06-13"),]$forcing_d      <- tar_df$forcing_d
-    df_site_date[which(df_site_date$sitename == "tarvainen_5812" & df_site_date$date == "2010-06-13"),]$forcing_growth <- tar_df$forcing_growth
-    }
-  }
-  # Bugfix --- END
-  
-  ## Report if all sites have a forcing and siteinfo:
+  ## Report if all sites have a forcing:
   df_site_date <-
     df_site_date %>%
     rowwise() %>%
-    dplyr::mutate(qc = !is.null(forcing_d) & !is.null(siteinfo)) %>% 
+    dplyr::mutate(qc = !is.null(forcing_d)) %>% 
     ungroup()
   
   qc <- df_site_date %>% dplyr::filter(qc == F)
@@ -386,9 +344,6 @@ k19_create_input_for_acc <- function(settings, df_forc = NA) {
     
   }
   
-  # Remove any sites for which there is no siteinfo (late additions)
-  df_site_date <- df_site_date |> mutate(nfilter = map_lgl(siteinfo, ~!is.null(nrow(.)))) |> filter(nfilter) |> select(-nfilter)
-  
   return(df_site_date)
 }
 
@@ -406,7 +361,6 @@ k19_run_acc <- function(df_site_date, settings) {
     message("!!! ATTENTION: Using kphio from df instead from settings, for sens. analys. Needs to be revised for normal runs! ")
   }
   
-  # Keep only variables of interest
   df_tmp <- 
     df_site_date %>% 
     mutate(settings = list(as_tibble(settings))) %>% 
@@ -1348,11 +1302,11 @@ plot_topt_extraction <- function(df_in,
         
         txt_ann <- 
           paste0("ID: ", df_i$sitename[1], " (", df_i$cl[1], ")",
-                "\nAgg. Date: ", df_i$agg_date[1],
-                # ", #Sampl. Days: ", length(unique(df_i$sample_date)), # txt_sa,
-                "\nMod: T_opt = ", sim_topt, ", Lim: ", limrate,
-                "\nObs: T_opt = ", tc_opt, " +- ", tc_opt_se, "\nFit: p < ", pval, ", R^2 = ", r2)
-                 # "\n   Fit: ", fit_method, ", p < ", pval, ", R^2 = ", r2)
+                 "\nAgg. Date: ", df_i$agg_date[1],
+                 # ", #Sampl. Days: ", length(unique(df_i$sample_date)), # txt_sa,
+                 "\nMod: T_opt = ", sim_topt, ", Lim: ", limrate,
+                 "\nObs: T_opt = ", tc_opt, " +- ", tc_opt_se, "\nFit: p < ", pval, ", R^2 = ", r2)
+        # "\n   Fit: ", fit_method, ", p < ", pval, ", R^2 = ", r2)
         
         p <-
           p +
@@ -1650,7 +1604,7 @@ plot_shape_thermal_response <- function(df_plot){
     ylim(0, 140) +
     xlim(-20, 20) +
     labs(
-      # title = expression(bold("Observed and modelled temperature response curves")),
+      title = expression(bold("Observed and modelled temperature response curves")),
       y = bquote("Scaled " ~ A[net] ~ "[%]"),
       x = bquote(T[leaf] ~ "-" ~ T[opt] ~ "[°C]")) +
     theme_linedraw(base_size = 14) +
@@ -1669,16 +1623,16 @@ plot_shape_thermal_response <- function(df_plot){
   #_____________________________________________________________________________
   # Facet by climate zone (but coarser cl level)
   p_scaled_cl_2 <-
-    df_scaled_new %>%
-    mutate(cl = as.factor(str_extract(cl, "[A-Z]{1,2}"))) %>%
-    mutate(across(cl, factor, levels=c('ET', 'D', 'C', 'A'))) %>%
+    df_scaled_new %>% 
+    mutate(cl = as.factor(str_extract(cl, "[A-Z]{1,2}"))) %>% 
+    mutate(across(cl, factor, levels=c('ET', 'D', 'C', 'A'))) %>% 
     ggplot() +
-    # geom_point(data = df_org_s %>%
-    #              mutate(cl = as.factor(str_extract(cl, "[A-Z]{1,2}"))) %>%
-    #              mutate(across(cl, factor, levels=c('ET', 'D', 'C', 'A'))),
-    #            aes(tdiff_org,
+    # geom_point(data = df_org_s %>% 
+    #              mutate(cl = as.factor(str_extract(cl, "[A-Z]{1,2}"))) %>% 
+    #              mutate(across(cl, factor, levels=c('ET', 'D', 'C', 'A'))), 
+    #            aes(tdiff_org, 
     #                anet_org_s,
-    #                fill = "Measurement",
+    #                fill = "Measurement", 
     #                color = "Measurement"
     #            ),
     #            alpha = 0.2,
@@ -1694,22 +1648,22 @@ plot_shape_thermal_response <- function(df_plot){
     #          length = unit(0.02, "npc"),
     #          position = "jitter"
     #          ) +
-    # geom_line(data = df_scaled_new,
+    # geom_line(data = df_scaled_new, 
   #           aes(tdiff_fit, anet_fit_s, group = id, linetype = "Measurement (loess)", color = "Measurement (loess)"),
   #           alpha = 0.5) +
   geom_line(data = df_scaled_new %>% mutate(cl = as.factor(str_extract(cl, "[A-Z]{1,2}"))),
-            aes(tdiff_rpm, anet_rpm_s, group = id,
-                linetype = "Model",
+            aes(tdiff_rpm, anet_rpm_s, group = id, 
+                linetype = "Model", 
                 color = "Model",
                 fill = "Model"),
             alpha = 0.5,
             size = 1) +
-    geom_smooth(data = df_org_s %>% mutate(cl = as.factor(str_extract(cl, "[A-Z]{1,2}"))),
-                aes(tdiff_org, anet_org_s,
-                    color = "Observed",
-                    fill = "Observed",
-                    linetype = "Observed"),
-                # fill = "grey",
+    geom_smooth(data = df_org_s %>% mutate(cl = as.factor(str_extract(cl, "[A-Z]{1,2}"))), 
+                aes(tdiff_org, anet_org_s, 
+                    color = "Measurement (loess)", 
+                    fill = "Measurement (loess)",
+                    linetype = "Measurement (loess)"),
+                # fill = "grey", 
                 alpha = 0.5,
                 size = 1,
                 method = 'loess',
@@ -1717,24 +1671,41 @@ plot_shape_thermal_response <- function(df_plot){
                 fullrange = T) +
     scale_linetype_manual(
       name = "",
-      breaks = c("Model", "Observed"),
+      breaks = c("Model", "Measurement (loess)"),
       values = c("solid", "solid"),
       guide = "none") +
     scale_color_manual(
       name = "",
-      breaks = c("Model", "Observed", "Measurement"),
-      values = c(RColorBrewer::brewer.pal(3, "Dark2")[1:2], "grey50")) +
+      breaks = c("Model", "Measurement (loess)"),
+      values = c(RColorBrewer::brewer.pal(3, "Dark2")[1:2])) +
     scale_fill_manual(
       name = "",
-      breaks = c("Model", "Observed", "Measurement"),
-      values = c(RColorBrewer::brewer.pal(3, "Dark2")[1:2], "grey50"),
+      breaks = c("Model", "Measurement (loess)"),
+      values = c(RColorBrewer::brewer.pal(3, "Dark2")[1:2]),
       guide = guide_legend(
         override.aes = list(shape = c(NA, NA),
                             size = c(1, 1),
                             linetype = c(1,1),
                             fill = c(NA, RColorBrewer::brewer.pal(3, "Dark2")[2]),
                             color = c(RColorBrewer::brewer.pal(3, "Dark2")[1:2])))) +
-    facet_wrap(~cl,
+    # ______________________________________________
+    # Use legend below if geom_points are shown too
+    # scale_color_manual(
+    #   name = "",
+    #   breaks = c("Model", "Measurement (loess)", "Measurement"),
+    #   values = c(RColorBrewer::brewer.pal(3, "Dark2")[1:2], "grey50")) +
+    # scale_fill_manual(
+    #   name = "",
+    #   breaks = c("Model", "Measurement (loess)", "Measurement"),
+    #   values = c(RColorBrewer::brewer.pal(3, "Dark2")[1:2], "grey50"),
+    #   guide = guide_legend(
+    #     override.aes = list(shape = c(NA, NA, 19),
+    #                         size = c(1, 1, 2.5),
+    #                         linetype = c(1,1,0),
+    #                         fill = c(NA, RColorBrewer::brewer.pal(3, "Dark2")[2], "white"),
+    #                         color = c(RColorBrewer::brewer.pal(3, "Dark2")[1:2], "black")))) +
+    # ______________________________________________
+    facet_wrap(~cl, 
                nrow = 1,
                labeller = as_labeller(c(
                  'A'  = "Tropical",
@@ -1745,7 +1716,7 @@ plot_shape_thermal_response <- function(df_plot){
     ylim(0, 140) +
     xlim(-20, 20) +
     labs(
-      # title = expression(bold("Observed and modelled temperature response curves")),
+      title = expression(bold("Observed and modelled temperature response curves")),
       y = bquote("Scaled " ~ A[net] ~ "[%]"),
       x = bquote(T[leaf] ~ "-" ~ T[opt] ~ "[°C]")) +
     theme_linedraw(base_size = 14) +
@@ -1856,7 +1827,7 @@ plot_shape_thermal_response <- function(df_plot){
     ylim(0, 140) +
     xlim(-20, 20) +
     labs(
-      # title = expression(bold("Observed and modelled temperature response curves")),
+      title = expression(bold("Observed and modelled temperature response curves")),
       y = bquote("Scaled " ~ A[net] ~ "[%]"),
       x = bquote(T[leaf] ~ "-" ~ T[opt] ~ "[°C]")) +
     theme_linedraw(base_size = 14) +
@@ -1903,9 +1874,6 @@ plot_obs_vs_pred <- function(df_in,
                              ylim   = NULL,
                              plot11 = T,
                              add_lm_metrics = T) {
-  
-  # Verbose
-  cat(" - Plotting ", y, " ~ ", x, "\n")
   
   ## Define local dataframe
   df_temp <- df_in
@@ -2185,30 +2153,30 @@ plot_obs_vs_pred <- function(df_in,
   }
   
   ## Add uncertainty range of intersection point if required ----
-  if (str_detect(y, "tc_opt") & x == "temp") {
-    # plot <-
-    #   plot +
-    #   geom_vline(xintercept = ip_xy,
-    #              color = "grey60",
-    #              linetype = "longdash") +
-    #   annotate('ribbon',
-    #            y = c(-Inf, Inf),
-    #            xmin = ip_xmin,
-    #            xmax = ip_xmax,
-    #            alpha = 0.1, fill = 'grey10')
-
-    plot <-
-      plot +
-      geom_vline(xintercept = ip_xy,
-                 color = "grey60",
-                 linetype = "dashed") +
-      annotate('ribbon',
-               y = c(-Inf, Inf),
-               xmin = ip_xmin,
-               xmax = ip_xmax,
-               alpha = 0.1,
-               fill = 'grey10')
-  }
+  # if (str_detect(y, "tc_opt") & x == "temp") {
+  #   # plot <-
+  #   #   plot +
+  #   #   geom_vline(xintercept = ip_xy,
+  #   #              color = "grey60",
+  #   #              linetype = "longdash") +
+  #   #   annotate('ribbon',
+  #   #            y = c(-Inf, Inf),
+  #   #            xmin = ip_xmin,
+  #   #            xmax = ip_xmax,
+  #   #            alpha = 0.1, fill = 'grey10')
+  #   
+  #   plot <-
+  #     plot +
+  #     geom_vline(xintercept = ip_xy,
+  #                color = "grey60",
+  #                linetype = "dashed") +
+  #     annotate('ribbon',
+  #              y = c(-Inf, Inf),
+  #              xmin = ip_xmin,
+  #              xmax = ip_xmax,
+  #              alpha = 0.1,
+  #              fill = 'grey10')
+  # }
   
   ## Add error bars before points ----
   if (!(is.null(y_se))) {
@@ -2238,7 +2206,10 @@ plot_obs_vs_pred <- function(df_in,
   ## Add points with right coloring and shape ----
   if (is.null(fill) & is.null(shape)) {
     plot <- plot +
-      geom_point(aes(y = y, x = x), color = "black", size = 2.5, pch = 21)
+      geom_point(aes(y = y, x = x), 
+                 color = "black",
+                 size = 2.5, 
+                 pch = 21)
     
   } else {
     if (str_detect(fill, "cl") & !is.null(shape)) {
@@ -2323,8 +2294,7 @@ plot_obs_vs_pred <- function(df_in,
       
       ## Distribute text equally in top left third
       n_texts <- 5
-      separate_space_into <- 1.75 # 3 = upper third, 4 = upper fourths, etc.
-      rel_pos <- yxlim/separate_space_into/n_texts # relative difference between lines
+      rel_pos <- yxlim/3/n_texts # relative difference between lines
       
       pos_0 <- yxlim - 0 * rel_pos
       pos_1 <- yxlim - 1 * rel_pos
@@ -2335,11 +2305,11 @@ plot_obs_vs_pred <- function(df_in,
       plot <-
         plot +
         # annotate(geom = "text", x = 0, y = yxlim*0.8,  size = 3.5, vjust = 1, hjust = 0, label = txt_pv) +
-        annotate(geom = "text", x = 0, y = pos_0,  size = 2.5, vjust = 1, hjust = 0, label = txt_b0, parse = T) +
-        annotate(geom = "text", x = 0, y = pos_1,  size = 2.5, vjust = 1, hjust = 0, label = txt_b1, parse = T) +
-        annotate(geom = "text", x = 0, y = pos_2,  size = 2.5, vjust = 1, hjust = 0, label = txt_r2, parse = T) +
-        annotate(geom = "text", x = 0, y = pos_3,  size = 2.5, vjust = 1, hjust = 0, label = txt_rmse, parse = T) +
-        annotate(geom = "text", x = 0, y = pos_4,  size = 2.5, vjust = 1, hjust = 0, label = txt_bias, parse = T)
+        annotate(geom = "text", x = 0, y = pos_0,  size = 2.75, vjust = 1, hjust = 0, label = txt_b0, parse = T) +
+        annotate(geom = "text", x = 0, y = pos_1,  size = 2.75, vjust = 1, hjust = 0, label = txt_b1, parse = T) +
+        annotate(geom = "text", x = 0, y = pos_2,  size = 2.75, vjust = 1, hjust = 0, label = txt_r2, parse = T) +
+        annotate(geom = "text", x = 0, y = pos_3,  size = 2.75, vjust = 1, hjust = 0, label = txt_rmse, parse = T) +
+        annotate(geom = "text", x = 0, y = pos_4,  size = 2.75, vjust = 1, hjust = 0, label = txt_bias, parse = T)
     }
     
     plot <-
@@ -2393,51 +2363,23 @@ plot_obs_vs_pred <- function(df_in,
       ## - COLORBLIND FRIENDLY COLORS
       # Brewer: RdYlBu has too little contrast.
       # Viridis: turbo does not work well
-      plot <-
-        plot +
-       scale_color_viridis_d(
-         option = "magma",
-         direction = -1,
-         # begin = 0.25, # For making better dark mode plots
-         # end  = 0.85,  # Form making better light mode plots
-         name = "Köppen-Geiger Climate Zone",
-         guide = guide_legend(direction = "horizontal",
-                              title.position = "top",
-                              ncol = 12,
-                              override.aes = list(shape = 21),
-                              reverse = TRUE)
-        ) +
-        scale_fill_viridis_d(
-          option = "magma",
-          direction = -1,
-          # begin = 0.25, # For making better dark mode plots
-          # end   = 0.85,  # Form making better light mode plots
-          name = "Köppen-Geiger Climate Zone",
-          guide = guide_legend(direction = "horizontal",
-                               title.position = "top",
-                               ncol = 12,
-                               override.aes = list(shape = 21),
-                               reverse = TRUE)
-        )
-      
-      # # Scico (suitable for dark plots):
       # plot <-
       #   plot +
-      #   scico::scale_color_scico_d(
-      #     palette = "roma",
-      #     # direction = -1,
-      #     # begin = 0.25, # For making better dark mode plots
-      #     # end  = 0.85,  # Form making better light mode plots
-      #     name = "Köppen-Geiger Climate Zone",
-      #     guide = guide_legend(direction = "horizontal",
-      #                          title.position = "top",
-      #                          ncol = 12,
-      #                          override.aes = list(shape = 21),
-      #                          reverse = TRUE)
+      #  scale_color_viridis_d(
+      #    option = "magma",
+      #    direction = -1,
+      #    # begin = 0.25, # For making better dark mode plots
+      #    # end  = 0.85,  # Form making better light mode plots
+      #    name = "Köppen-Geiger Climate Zone",
+      #    guide = guide_legend(direction = "horizontal",
+      #                         title.position = "top",
+      #                         ncol = 12,
+      #                         override.aes = list(shape = 21),
+      #                         reverse = TRUE)
       #   ) +
-      #   scico::scale_fill_scico_d(
-      #     palette = "roma",
-      #     # direction = -1,
+      #   scale_fill_viridis_d(
+      #     option = "magma",
+      #     direction = -1,
       #     # begin = 0.25, # For making better dark mode plots
       #     # end   = 0.85,  # Form making better light mode plots
       #     name = "Köppen-Geiger Climate Zone",
@@ -2447,6 +2389,37 @@ plot_obs_vs_pred <- function(df_in,
       #                          override.aes = list(shape = 21),
       #                          reverse = TRUE)
       #   )
+      
+      ### Dark Mode Colors ----
+      # Scico (suitable for dark plots):
+      plot <-
+        plot +
+        scico::scale_color_scico_d(
+          palette = "roma",
+          # direction = -1,
+          ## For making better dark mode plots
+          begin = 0, 
+          end   = 0.8,  
+          name = "Köppen-Geiger Climate Zone",
+          guide = guide_legend(direction = "horizontal",
+                               title.position = "top",
+                               ncol = 12,
+                               override.aes = list(shape = 21),
+                               reverse = TRUE)
+        ) +
+        scico::scale_fill_scico_d(
+          palette = "roma",
+          # direction = -1,
+          ## For making better dark mode plots
+          begin = 0, 
+          end   = 0.8,  
+          name = "Köppen-Geiger Climate Zone",
+          guide = guide_legend(direction = "horizontal",
+                               title.position = "top",
+                               ncol = 12,
+                               override.aes = list(shape = 21),
+                               reverse = TRUE)
+        )
       
       ## - COLORBLIND FRIENDLY COLORS
       
@@ -2459,15 +2432,12 @@ plot_obs_vs_pred <- function(df_in,
   }
   
   ## Add shape legend
-  if (!(is.null(shape)) | TRUE) {
+  if (!(is.null(shape))) {
     
     df_metrics$n_aj <- NA
     df_metrics$n_ac <- NA
     
-    # Bugfix: Setting to TRUE for quick bugfix to add n_ac, n_aj information...
-    if (!is.null(shape) | TRUE) { 
-      # Bugfix: Set shape to rpm_sim_min_a
-      shape <- "rpm_sim_min_a"
+    if (!is.null(shape)) {
       if (str_detect(shape, "rpm_sim_min_a")) {
         
         if (all(c("ac", "aj") %in% df_temp[["rpm_sim_min_a"]])) {
@@ -2490,29 +2460,24 @@ plot_obs_vs_pred <- function(df_in,
         df_metrics$n_aj <- n_aj
         df_metrics$n_ac <- n_ac
         
-        # Quickfix: If shape is not
-        # warning("⚠️⚠️ Bugfix causes always adding shape depending on 'rpm_sim_min_a'")
-        if (!is.null(shape) & FALSE) {
-          
-          plot <-
-            plot +
-            geom_point(
-              data = tibble(x = -10, y = -10, s = as.factor(ifelse(n_ac == 0, "ac", "aj"))),
-              aes(x, y, shape = s)) +
-            scale_shape_manual(
-              name = "Limit.",
-              breaks = c("ac", "aj"),
-              values = c(21, 23),
-              labels = c("Ac", "Aj"),
-              guide = guide_legend(
-                direction = "horizontal", 
-                title.position = "top",
-                override.aes = list(
-                  shape = c(21, 23),
-                  size = c(2, 2)
-                ))) +
-            labs(caption = paste0(caption11, " | #Ac: ", n_ac, " | #Aj: ", n_aj))
-          }
+        plot <-
+          plot +
+          geom_point(
+            data = tibble(x = -10, y = -10, s = as.factor(ifelse(n_ac == 0, "ac", "aj"))),
+            aes(x, y, shape = s)) +
+          scale_shape_manual(
+            name = "Limit.",
+            breaks = c("ac", "aj"),
+            values = c(21, 23),
+            labels = c("Ac", "Aj"),
+            guide = guide_legend(
+              direction = "horizontal", 
+              title.position = "top",
+              override.aes = list(
+                shape = c(21, 23),
+                size = c(2, 2)
+              ))) +
+          labs(caption = paste0(caption11, " | #Ac: ", n_ac, " | #Aj: ", n_aj))
       }
     }
   }
@@ -2528,7 +2493,7 @@ plot_obs_vs_pred <- function(df_in,
 
 ## Collecting plots ----
 plot_all_final_plots_from_df_plot <- function(df_plot, settings){
-
+  
   #_____________________________________________________________________________
   ## Get plots
   ## Modobs and var ~ T_growth
@@ -2552,7 +2517,7 @@ plot_all_final_plots_from_df_plot <- function(df_plot, settings){
   #_____________________________________________________________________________
   # Save plots only when requested
   if (F & settings$save_plots) { # Set to F to save only the big plots within the pmodel routine
-  
+    
     message(paste0("Saving to... ", settings$dir_now))
     
     ## Base Plots
@@ -2997,273 +2962,198 @@ plot_all_for_one_model <- function(df_plot, title_1 = "model_1") {
   # __________________________________________________________________________
   # OBSERVED TOP_T  ~ PREDICTED TC_LEAF GROWTH
   color <- "darkgreen"
-  p_topt_obs_tcleaf <-
-    df_red_1 %>% 
-    ggplot() +
-    aes(x = tc_leaf, y = eva_data_tc_opt) +
-    geom_errorbar(aes(x = tc_leaf, ymin = eva_data_tc_opt - eva_data_tc_opt_se, ymax = eva_data_tc_opt + eva_data_tc_opt_se), color = color) +
-    geom_point(aes(x = tc_leaf, y = eva_data_tc_opt), fill = color, shape = 21, size = 2.5) +
-    geom_smooth(aes(x = tc_leaf, y = eva_data_tc_opt), color = color, method = "lm", fullrange = T) +
-    ylab(expression("Observed " ~ T[opt])) + 
-    xlab(expression("Modelled Growth " ~ T[leaf])) + 
-    xlim(0, 40) + 
-    ylim(0, 40) +
-    geom_abline(intercept = 0, slope = 1, linetype = "dotted") +
-    ggtitle(expression("Modelled " ~ T[opt] ~ "~" ~ "Modelled Growth " ~ T[leaf])) +
-    ggpmisc::stat_poly_eq(data = df_red_1,
-                          formula = y ~ x,
-                          coef.digits = 2,
-                          method = "lm",
-                          aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~~")), 
-                          parse = TRUE) +
-    theme_classic()
-  
-  
-  color <- "skyblue"
-  p_topt_obs_tcair_monocol <-
-    df_red_1 %>% 
-    ggplot() +
-    aes(x = temp, y = eva_data_tc_opt) +
-    geom_errorbar(aes(x = temp, ymin = eva_data_tc_opt - eva_data_tc_opt_se, ymax = eva_data_tc_opt + eva_data_tc_opt_se), color = color) +
-    geom_point(aes(x = temp, y = eva_data_tc_opt), fill = color, shape = 21, size = 2.5) +
-    geom_smooth(aes(x = temp, y = eva_data_tc_opt), color = color, method = "lm", fullrange = T) +
-    ylab(expression("Observed " ~ T[opt])) + 
-    xlab(expression("Observed Growth " ~ T[air])) + 
-    xlim(0, 40) + 
-    ylim(0, 40) +
-    geom_abline(intercept = 0, slope = 1, linetype = "dotted") +
-    ggtitle(expression("Observed " ~ T[opt] ~ "~" ~ "Observed Growth " ~ T[air])) +
-    ggpmisc::stat_poly_eq(data = df_red_1,
-                          formula = y ~ x,
-                          coef.digits = 2,
-                          method = "lm",
-                          aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~~")), 
-                          parse = TRUE) +
-    theme_classic()
-  
-  # __________________________________________________________________________
-  # ├ Traits ~ T_growth ----
-  list_traits <- list()
-  
-  for (trait in c("chi", "vcmax25", "jmax25", "rd25", "vcmax", "jmax", "gs_c", "xi")) {
-    # for (trait in c("vcmax25", "jmax25")) {
-    xlim_val <- max(df_red_1[["temp"]]) + 5
-    df_red_1$y <- df_red_1[[trait]]
-    
-    if (trait == "vcmax25") {
-      ylab_txt <- bquote(V[cmax]^25 ~ "[µmol" ~ m^-2 ~ s ^-1 ~ "]")
-      ylim_val <- 150
-    } else if (trait == "rd25") {
-      ylab_txt <- bquote(R[d]^25 ~ "[µmol" ~ m^-2 ~ s ^-1 ~ "]")
-      ylim_val <- 150*0.015
-    } else if (trait == "vcmax") {
-      ylab_txt <- bquote(V[cmax]^acc ~ "[µmol" ~ m^-2 ~ s ^-1 ~ "]")
-      ylim_val <- 150
-    } else if (trait == "jmax25") {
-      ylab_txt <-  bquote(J[max]^25 ~ "[µmol" ~ m^-2 ~ s ^-1 ~ "]")
-      ylim_val <- 300
-    } else if (trait == "jmax") {
-      ylab_txt <-  bquote(J[max]^acc ~ "[µmol" ~ m^-2 ~ s ^-1 ~ "]")
-      ylim_val <- 300
-    } else if (trait == "chi") {
-      ylab_txt     <- bquote(c[i] ~ "/" ~ c[a] ~ "[-]")
-      ylim_val     <- 1
-    } else if (trait == "gs_c") {
-      ylab_txt    <- bquote(g[s,c] ~ "[µmol C" ~ m^-2 ~ s ^-1 ~ Pa^-1 ~ "]")
-      ylim_val <- max(df_red_1$y) + round(max(df_red_1$y) * 0.1)
-    } else if (trait == "xi") {
-      ylab_txt    <- bquote("xi [" ~ Pa^-0.5 ~ "]")
-      # ylim_val <- max(df_red_1$y) + round(max(df_red_1$y) * 0.1)
-      ylim_val <- 150
-    }
-    
-    list_traits[[trait]] <-
+    p_topt_obs_tcleaf <-
       df_red_1 %>% 
       ggplot() +
-      aes(x = temp, y = y) +
-      ## Color by PFT
-      geom_point(aes(x = temp, y = y, fill = pft), color = "black", size = 2, shape = 21) +
-      scico::scale_fill_scico_d(palette = "roma") +
+      aes(x = tc_leaf, y = eva_data_tc_opt) +
+      geom_errorbar(aes(x = tc_leaf, ymin = eva_data_tc_opt - eva_data_tc_opt_se, ymax = eva_data_tc_opt + eva_data_tc_opt_se), color = color) +
+      geom_point(aes(x = tc_leaf, y = eva_data_tc_opt), fill = color, shape = 21, size = 2.5) +
+      geom_smooth(aes(x = tc_leaf, y = eva_data_tc_opt), color = color, method = "lm", fullrange = T) +
+      ylab(expression("Observed " ~ T[opt])) + 
+      xlab(expression("Modelled Growth " ~ T[leaf])) + 
+      xlim(0, 40) + 
+      ylim(0, 40) +
+      geom_abline(intercept = 0, slope = 1, linetype = "dotted") +
+      ggtitle(expression("Modelled " ~ T[opt] ~ "~" ~ "Modelled Growth " ~ T[leaf])) +
+      ggpmisc::stat_poly_eq(data = df_red_1,
+                            formula = y ~ x,
+                            coef.digits = 2,
+                            method = "lm",
+                            aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~~")), 
+                            parse = TRUE) +
+      theme_classic()
+    
+    
+    color <- "skyblue"
+      p_topt_obs_tcair_monocol <-
+        df_red_1 %>% 
+        ggplot() +
+        aes(x = temp, y = eva_data_tc_opt) +
+        geom_errorbar(aes(x = temp, ymin = eva_data_tc_opt - eva_data_tc_opt_se, ymax = eva_data_tc_opt + eva_data_tc_opt_se), color = color) +
+        geom_point(aes(x = temp, y = eva_data_tc_opt), fill = color, shape = 21, size = 2.5) +
+        geom_smooth(aes(x = temp, y = eva_data_tc_opt), color = color, method = "lm", fullrange = T) +
+        ylab(expression("Observed " ~ T[opt])) + 
+        xlab(expression("Observed Growth " ~ T[air])) + 
+        xlim(0, 40) + 
+        ylim(0, 40) +
+        geom_abline(intercept = 0, slope = 1, linetype = "dotted") +
+        ggtitle(expression("Observed " ~ T[opt] ~ "~" ~ "Observed Growth " ~ T[air])) +
+        ggpmisc::stat_poly_eq(data = df_red_1,
+                              formula = y ~ x,
+                              coef.digits = 2,
+                              method = "lm",
+                              aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~~")), 
+                              parse = TRUE) +
+        theme_classic()
       
-      ## Color by Climate Zone
-      # geom_point(aes(x = temp, y = y, fill = cl), color = "black", size = 2, shape = 21) +
-      # scico::scale_fill_scico_d(palette = "roma") +
+      # __________________________________________________________________________
+      # ├ Traits ~ T_growth ----
+      list_traits <- list()
       
-      ## Labels
-      ylab("Trait Value") + 
-      xlab(expression(T[growth] ~ "[°C]")) + 
-      labs(subtitle=ylab_txt) +
-      xlim(0, xlim_val) +
-      ylim(0, ylim_val)
-    
-    if (trait %in% c("chi", "vcmax25", "jmax25", "rd25")) {
-      list_traits[[trait]] <- 
-        list_traits[[trait]]
-        # geom_smooth(aes(x = temp, y = y), method = "lm", fullrange = T, color = "red") +
-        # ggpmisc::stat_poly_eq(data = df_red_1,
-        #                       formula = y ~ x,
-        #                       coef.digits = 2,
-        #                       method = "lm",
-        #                       aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~~")), 
-        #                       parse = TRUE)  
-    }
-  }
-  
-  # 1x3
-  p_traits <-
-    (list_traits[["vcmax25"]]) +
-    (list_traits[["rd25"]]) +
-    (list_traits[["jmax25"]] + ylab(NULL)) +
-    (list_traits[["xi"]] + ylab(NULL)) +
-    plot_layout(nrow = 1, guides = "collect") &
-    theme(legend.position = "bottom") &
-    theme_classic() &
-    plot_annotation("Traits along growth temperature gradient")
-  
-  # 2x3
-  # p_traits <-
-  #   (list_traits[["vcmax25"]] + xlab(NULL)) +
-  #   (list_traits[["jmax25"]] + xlab(NULL) + ylab(NULL)) +
-  #   (list_traits[["chi"]] + xlab(NULL) + ylab(NULL)) +
-  #   list_traits[["vcmax"]] +
-  #   (list_traits[["jmax"]] + ylab(NULL)) +
-  #   (list_traits[["xi"]] + ylab(NULL)) +
-  #   # list_traits[["gs_c"]] + ylab(NULL) +
-  #   plot_layout(nrow = 2) &
-  #   theme_classic() &
-  #   plot_annotation("Traits along growth temperature gradient")
-  # 
-  
-  # ├ Jmax/Vcmax ----
-  df_jvr   <-
-    df_red_1 |> 
-    mutate(
-      x = temp,
-      y = jmax25/vcmax25
-    )
-  
-  p_jvr_tgrowth <- 
-    df_jvr |> 
-    ggplot() +
-    ## Color by PFT
-    geom_point(aes(x = x, y = y, fill = pft), 
-               color = "black",
-               size = 2, 
-               shape = 21
-               ) +
-    scico::scale_fill_scico_d(palette = "roma") +
-    theme_classic() +
-    
-    ## Color by Climate Zone
-    # geom_point(aes(x = temp, y = y, fill = cl), color = "black", size = 2, shape = 21) +
-    # scico::scale_fill_scico_d(palette = "roma") +
-    
-    ## Add lm
-    # geom_smooth(aes(x = x, y = y), method = "lm", fullrange = T, color = "red") +
-    # ggpmisc::stat_poly_eq(data = df_jvr,
-    #                       formula = y ~ x,
-    #                       coef.digits = 2,
-    #                       method = "lm",
-    #                       aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~~")),
-    #                       parse = TRUE)  +
-    
-    ## Labels
-    ylab(bquote(JV[r])) + 
-    xlab(expression(T[growth] ~ "[°C]")) + 
-    # labs(subtitle = bquote("Response of " ~ J[max]^25 ~ ":" ~ V[cmax]^25 ~ " to " ~ T[growth]),
-    labs(subtitle = bquote("Response of " ~ JV[r] ~ " to " ~ T[growth]),
-         fill = "PFT") +
-    xlim(0, xlim_val)
-  
-  p_topt_jvr <- 
-    df_red_1 |> 
-    ggplot() +
-    ## Color by PFT
-    geom_point(aes(x = jmax25/vcmax25, y = rpm_sim_tc_opt, fill = pft), 
-               color = "black",
-               size = 2, 
-               shape = 21
-    ) +
-    scico::scale_fill_scico_d(palette = "roma") +
-    theme_classic() +
-    
-    ## Color by Climate Zone
-    # geom_point(aes(x = temp, y = y, fill = cl), color = "black", size = 2, shape = 21) +
-    # scico::scale_fill_scico_d(palette = "roma") +
-    
-    ## Labels
-    xlab(bquote(JV[r])) + 
-    ylab(expression(T[opt] ~ "[°C]")) + 
-    labs(subtitle = bquote("Response of " ~ T[opt] ~ " to " ~ JV[r]),
-         fill = "PFT") +
-    ylim(0, 35) +
-    xlim(1.25, 3)
-  
-  p_jvr_all <- 
-    p_jvr_tgrowth + p_topt_jvr + 
-    plot_layout(guides = "collect") &
-    theme(legend.position = "bottom") 
-  
-  # __________________________________________________________________________
-  # FINAL PLOTS
-  
-  p_all1 <- p_modobs_topt + p_modobs_aopt + p_leaf_air1 + p_topt_obs_tcleaf + plot_annotation(title = title_1)
-  
-  out <- list(
-    ## Summary Plots
-    all = p_all1,
-    p_traits = p_traits,
-    p_traits_list = list_traits,
-    
-    ## Air-Leaf Plots
-    leaf_air = p_leaf_air1,
-    topt_obs_tcair_monocol = p_topt_obs_tcair_monocol,
-    
-    ## T_opt Plots
-    modobs_topt = p_modobs_topt,
-    p_topt_mod_tcair   = p_topt_mod_tcair,
-    p_topt_obs_tcair   = p_topt_obs_tcair,
-    p_topt_obs_tcleaf  = p_topt_obs_tcleaf,
-    
-    ## A_OPT PLOTS
-    modobs_aopt = p_modobs_aopt,
-    p_aopt_obs_tcair = p_aopt_obs_tcair,
-    p_aopt_mod_tcair = p_aopt_mod_tcair,
-    
-    ## A_growth PLOTS
-    modobs_agrowth      = p_modobs_agrowth,
-    p_agrowth_obs_tcair = p_agrowth_obs_tcair,
-    p_agrowth_mod_tcair = p_agrowth_mod_tcair,
-    
-    ## T_span
-    modobs_tspan       = p_modobs_tspan,
-    p_tspan_obs_tcair    = p_tspan_obs_tcair,
-    p_tspan_mod_tcair    = p_tspan_mod_tcair,
-    
-    ## Jmax / Vcmax
-    p_jvr_tgrowth = p_jvr_tgrowth,
-    p_topt_jvr    = p_topt_jvr,
-    p_jvr_all     = p_jvr_all,
-    
-    ## Metrics of modobs
-    metrics_modobs_topt = metrics_modobs_topt,
-    metrics_modobs_aopt = metrics_modobs_aopt,
-    metrics_modobs_agrowth = metrics_modobs_agrowth,
-    metrics_modobs_tspan = metrics_modobs_tspan,
-  
-    ## Observed thermal acclimation capacity
-    metrics_obstemp_topt = metrics_obstemp_topt,
-    metrics_obstemp_aopt = metrics_obstemp_aopt,
-    metrics_obstemp_agrowth = metrics_obstemp_agrowth,
-    metrics_obstemp_tspan = metrics_obstemp_tspan,
-    
-    ## Modelled thermal acclimation capacity
-    metrics_modtemp_topt = metrics_modtemp_topt,
-    metrics_modtemp_aopt = metrics_modtemp_aopt,
-    metrics_modtemp_agrowth = metrics_modtemp_agrowth,
-    metrics_modtemp_tspan = metrics_modtemp_tspan)
-  
-  return(out)
+      for (trait in c("chi", "vcmax25", "jmax25", "rd25", "vcmax", "jmax", "gs_c", "xi")) {
+        # for (trait in c("vcmax25", "jmax25")) {
+        xlim_val <- max(df_red_1[["temp"]]) + 5
+        df_red_1$y <- df_red_1[[trait]]
+        
+        if (trait == "vcmax25") {
+          ylab_txt <- bquote(V[cmax]^25 ~ "[µmol" ~ m^-2 ~ s ^-1 ~ "]")
+          ylim_val <- 150
+        } else if (trait == "rd25") {
+          ylab_txt <- bquote(R[d]^25 ~ "[µmol" ~ m^-2 ~ s ^-1 ~ "]")
+          ylim_val <- 150*0.015
+        } else if (trait == "vcmax") {
+          ylab_txt <- bquote(V[cmax]^acc ~ "[µmol" ~ m^-2 ~ s ^-1 ~ "]")
+          ylim_val <- 150
+        } else if (trait == "jmax25") {
+          ylab_txt <-  bquote(J[max]^25 ~ "[µmol" ~ m^-2 ~ s ^-1 ~ "]")
+          ylim_val <- 300
+        } else if (trait == "jmax") {
+          ylab_txt <-  bquote(J[max]^acc ~ "[µmol" ~ m^-2 ~ s ^-1 ~ "]")
+          ylim_val <- 300
+        } else if (trait == "chi") {
+          ylab_txt     <- bquote(c[i] ~ "/" ~ c[a] ~ "[-]")
+          ylim_val     <- 1
+        } else if (trait == "gs_c") {
+          ylab_txt    <- bquote(g[s,c] ~ "[µmol C" ~ m^-2 ~ s ^-1 ~ Pa^-1 ~ "]")
+          ylim_val <- max(df_red_1$y) + round(max(df_red_1$y) * 0.1)
+        } else if (trait == "xi") {
+          ylab_txt    <- bquote("xi [" ~ Pa^-0.5 ~ "]")
+          # ylim_val <- max(df_red_1$y) + round(max(df_red_1$y) * 0.1)
+          ylim_val <- 150
+        }
+        
+        list_traits[[trait]] <-
+          df_red_1 %>% 
+          ggplot() +
+          aes(x = temp, y = y) +
+          ## Color by PFT
+          # geom_point(aes(x = temp, y = y, fill = pft), size = 2, shape = 21) +
+          # scale_fill_viridis_d("PFT", option = "viridis", direction = -1) +
+          
+          ## Color by Climate Zone
+          geom_point(aes(x = temp, y = y, fill = cl), color = "black", size = 2, shape = 21) +
+          scico::scale_fill_scico_d(palette = "roma") +
+          ylab("Trait Value") + 
+          xlab(expression(T[growth] ~ "[°C]")) + 
+          labs(subtitle=ylab_txt) +
+          xlim(0, xlim_val) +
+          ylim(0, ylim_val)
+        
+        if (trait %in% c("chi", "vcmax25", "jmax25", "rd25")) {
+          list_traits[[trait]] <- 
+            list_traits[[trait]] +
+            geom_smooth(aes(x = temp, y = y), method = "lm", fullrange = T, color = "red") +
+            ggpmisc::stat_poly_eq(data = df_red_1,
+                                  formula = y ~ x,
+                                  coef.digits = 2,
+                                  method = "lm",
+                                  aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~~")), 
+                                  parse = TRUE)  
+        }
+      }
+      
+      # 1x3
+      p_traits <-
+        (list_traits[["vcmax25"]]) +
+        (list_traits[["rd25"]]) +
+        (list_traits[["jmax25"]] + ylab(NULL)) +
+        (list_traits[["xi"]] + ylab(NULL)) +
+        plot_layout(nrow = 1, guides = "collect") &
+        theme(legend.position = "bottom") &
+        theme_classic() &
+        plot_annotation("Traits along growth temperature gradient")
+      
+      
+      
+      # 2x3
+      # p_traits <-
+      #   (list_traits[["vcmax25"]] + xlab(NULL)) +
+      #   (list_traits[["jmax25"]] + xlab(NULL) + ylab(NULL)) +
+      #   (list_traits[["chi"]] + xlab(NULL) + ylab(NULL)) +
+      #   list_traits[["vcmax"]] +
+      #   (list_traits[["jmax"]] + ylab(NULL)) +
+      #   (list_traits[["xi"]] + ylab(NULL)) +
+      #   # list_traits[["gs_c"]] + ylab(NULL) +
+      #   plot_layout(nrow = 2) &
+      #   theme_classic() &
+      #   plot_annotation("Traits along growth temperature gradient")
+      # 
+      
+      # __________________________________________________________________________
+      # FINAL PLOTS
+      
+      p_all1 <- p_modobs_topt + p_modobs_aopt + p_leaf_air1 + p_topt_obs_tcleaf + plot_annotation(title = title_1)
+      
+      out <- list(
+        ## Summary Plots
+        all = p_all1,
+        p_traits = p_traits,
+        p_traits_list = list_traits,
+        
+        ## Air-Leaf Plots
+        leaf_air = p_leaf_air1,
+        topt_obs_tcair_monocol = p_topt_obs_tcair_monocol,
+        
+        ## T_opt Plots
+        modobs_topt = p_modobs_topt,
+        p_topt_mod_tcair   = p_topt_mod_tcair,
+        p_topt_obs_tcair   = p_topt_obs_tcair,
+        p_topt_obs_tcleaf  = p_topt_obs_tcleaf,
+        
+        ## A_OPT PLOTS
+        modobs_aopt = p_modobs_aopt,
+        p_aopt_obs_tcair = p_aopt_obs_tcair,
+        p_aopt_mod_tcair = p_aopt_mod_tcair,
+        
+        ## A_growth PLOTS
+        modobs_agrowth      = p_modobs_agrowth,
+        p_agrowth_obs_tcair = p_agrowth_obs_tcair,
+        p_agrowth_mod_tcair = p_agrowth_mod_tcair,
+        
+        ## T_span
+        modobs_tspan       = p_modobs_tspan,
+        p_tspan_obs_tcair    = p_tspan_obs_tcair,
+        p_tspan_mod_tcair    = p_tspan_mod_tcair,
+        
+        ## Metrics of modobs
+        metrics_modobs_topt = metrics_modobs_topt,
+        metrics_modobs_aopt = metrics_modobs_aopt,
+        metrics_modobs_agrowth = metrics_modobs_agrowth,
+        metrics_modobs_tspan = metrics_modobs_tspan,
+        
+        ## Observed thermal acclimation capacity
+        metrics_obstemp_topt = metrics_obstemp_topt,
+        metrics_obstemp_aopt = metrics_obstemp_aopt,
+        metrics_obstemp_agrowth = metrics_obstemp_agrowth,
+        metrics_obstemp_tspan = metrics_obstemp_tspan,
+        
+        ## Modelled thermal acclimation capacity
+        metrics_modtemp_topt = metrics_modtemp_topt,
+        metrics_modtemp_aopt = metrics_modtemp_aopt,
+        metrics_modtemp_agrowth = metrics_modtemp_agrowth,
+        metrics_modtemp_tspan = metrics_modtemp_tspan)
+      
+      return(out)
 }
 
 
@@ -3330,35 +3220,35 @@ plot_iso_acc_modobs <- function(trait,
   
   ## Non, partial, full acclimated processes
   
-
+  
   
   if (modobs_or_modtcair == "modobs") {
     if (trait == "topt")  {
       y_axis <- expression("Observed" ~ T[opt] ~ "[°C]")
-      big_title <- NULL #expression(bold("Prediction of " ~ T[opt] ~ "Across Model Setups"))
+      big_title <- expression(bold("Prediction of " ~ T[opt] ~ "Across Model Setups"))
     }
     if (trait == "aopt")  {
       y_axis <- expression("Observed" ~ A[opt] ~ "[µmol" ~ m ^-2 ~ s ^-1 ~ "]")
-      big_title <- NULL #expression(bold("Prediction of " ~ A[opt] ~ "Across Model Setups"))
+      big_title <- expression(bold("Prediction of " ~ A[opt] ~ "Across Model Setups"))
     }
     if (trait == "tspan") {
       y_axis <- expression("Observed" ~ T[span] ~ "[°C]")
-      big_title <- NULL #expression(bold("Prediction of " ~ T[span] ~ "Across Model Setups"))
+      big_title <- expression(bold("Prediction of " ~ T[span] ~ "Across Model Setups"))
     }
   }
   
   if (modobs_or_modtcair == "modtcair") {
     if (trait == "topt")  {
       y_axis <- expression(T[opt] ~ "[°C]")
-      big_title <- NULL #expression(bold("Thermal Acclimation of " ~ T[opt] ~ " Across Model Setups"))
+      big_title <- expression(bold("Thermal Acclimation of " ~ T[opt] ~ " Across Model Setups"))
     }
     if (trait == "aopt")  {
       y_axis <- expression(A[opt] ~ "[µmol" ~ m ^-2 ~ s ^-1 ~ "]")
-      big_title <- NULL #expression(bold("Thermal Acclimation of " ~ A[opt] ~ " Across Model Setups"))
+      big_title <- expression(bold("Thermal Acclimation of " ~ A[opt] ~ " Across Model Setups"))
     }
     if (trait == "tspan") {
       y_axis <- expression(T[span] ~ "[°C]")
-      big_title <- NULL #expression(bold("Thermal Acclimation of " ~ T[span] ~ " Across Model Setups"))
+      big_title <- expression(bold("Thermal Acclimation of " ~ T[span] ~ " Across Model Setups"))
     }
   }
   
@@ -3601,25 +3491,25 @@ table_acclimation_contributions <- function(trait,
   txt_er_pc    <- paste0(p_k19_vj_phi[[tmp]]$setup, ", ", p_k19_vj_phi[[tmp]]$b0, ", ", p_k19_vj_phi[[tmp]]$b1, ifelse(p_k19_vj_phi[[tmp]]$pval > p_thresh, "", "*"), ", ", p_k19_vj_phi[[tmp]]$ip_xy, ", ", p_k19_vj_phi[[tmp]]$n_ac, " / ", p_k19_vj_phi[[tmp]]$n_aj)
   txt_sb_pc    <- paste0(p_xi_k19[[tmp]]$setup, ", ", p_xi_k19[[tmp]]$b0, ", ", p_xi_k19[[tmp]]$b1, ifelse(p_xi_k19[[tmp]]$pval > p_thresh, "", "*"), ", ", p_xi_k19[[tmp]]$ip_xy, ", ", p_xi_k19[[tmp]]$n_ac, " / ", p_xi_k19[[tmp]]$n_aj)
   txt_er_sb    <- paste0(p_xi_vj_phi[[tmp]]$setup, ", ", p_xi_vj_phi[[tmp]]$b0, ", ", p_xi_vj_phi[[tmp]]$b1, ifelse(p_xi_vj_phi[[tmp]]$pval > p_thresh, "", "*"), ", ", p_xi_vj_phi[[tmp]]$ip_xy, ", ", p_xi_vj_phi[[tmp]]$n_ac, " / ", p_xi_vj_phi[[tmp]]$n_aj)
-
+  
   tab_red <- 
     list(txt_top,
-           txt_obs,
-           txt_fullacc,
-           txt_noacc,
-           txt_pc,
-           txt_sb,
-           txt_er,
-           txt_sb_pc,
-           txt_er_pc,
-           txt_er_sb)
+         txt_obs,
+         txt_fullacc,
+         txt_noacc,
+         txt_pc,
+         txt_sb,
+         txt_er,
+         txt_sb_pc,
+         txt_er_pc,
+         txt_er_sb)
   
   # Cleaning to avoid confusion of mod-obs and topt-tgrowth 
   if (comparison == "mod-obs") {
     tab_acc_capa <- tab_acc_capa %>% dplyr::filter(!str_detect(setup, "obs"))
     tab_red      <- tab_red[-2]
   }
-    
+  
   write_csv(tab_acc_capa, paste0(here(dir_tabs), "/", comparison, "_full_", trait, ".csv")) 
   write_lines(tab_red, paste0(here(dir_tabs), "/", comparison, "_clean_", trait, ".csv"))
   
@@ -4004,7 +3894,7 @@ add_climatezone_to_siteinfo <- function(df_in){
   
   ## Code
   # Check if required packages are loaded from here: https://vbaliga.github.io/verify-that-r-packages-are-installed-and-loaded/
-  packages <- c("raster", "tidyverse")
+  packages <- c("rgdal", "raster", "tidyverse")
   package.check <- lapply(packages,
                           FUN = function(x) {if (!require(x, character.only = TRUE)) {
                             install.packages(x, dependencies = TRUE)
@@ -4054,52 +3944,32 @@ add_climatezone_to_siteinfo <- function(df_in){
 ## .................................................................................................
 
 get_kg_climate_plot <- function(){
-  # Load necessary libraries
-  library(sf)
-  library(ggplot2)
-  library(rnaturalearth)
-  library(rnaturalearthdata)
-  library(dplyr)
+  packages <- c("rgdal", "raster", "tidyverse")
+  package.check <- lapply(packages,
+                          FUN = function(x) {if (!require(x, character.only = TRUE)) {
+                            install.packages(x, dependencies = TRUE)
+                            library(x, character.only = TRUE)}})
   
-  # Prepare the color key
-  key <- data.frame(GRIDCODE = c(11, 12, 13, 14, 21, 22, 26, 27, 31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 61, 62),
-                    cl = c('Af', 'Am', 'As', 'Aw', 'BSh', 'BSk', 'BWh', 'BWk', 'Cfa', 'Cfb', 'Cfc', 'Csa', 'Csb', 'Csc', 'Cwa', 'Cwb', 'Cwc', 'Dfa', 'Dfb', 'Dfc', 'Dfd', 'Dsa', 'Dsb', 'Dsc', 'Dsd', 'Dwa', 'Dwb', 'Dwc', 'Dwd', 'EF', 'ET'),
-                    color = c("#960000", "#FF0000", "#FF6E6E", "#FFCCCC", "#CC8D14", "#CCAA54", "#FFCC00", "#FFFF64", "#007800", "#005000", "#003200", "#96FF00", "#00D700", "#00AA00", "#BEBE00", "#8C8C00", "#5A5A00", "#550055", "#820082", "#C800C8", "#FF6EFF", "#646464", "#8C8C8C", "#BEBEBE", "#E6E6E6", "#6E28B4", "#B464FA", "#C89BFA", "#C8C8FF", "#6496FF", "#64FFFF"))
+  ## Global Maps Basis
+  kg <- readOGR(dsn = here("data/climate_zones/1976-2000_GIS"), layer = "1976-2000")
+  kg <- spTransform(kg, CRS("+proj=longlat +datum=WGS84"))
+  kg_f <- fortify(kg, region = "GRIDCODE")
+  key <- data.frame( id = c(11, 12, 13, 14, 21, 22, 26, 27, 31, 32, 33, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 61, 62),
+                     cl = c('Af', 'Am', 'As', 'Aw', 'BSh', 'BSk', 'BWh', 'BWk', 'Cfa', 'Cfb','Cfc', 'Csa', 'Csb', 'Csc', 'Cwa','Cwb', 'Cwc', 'Dfa', 'Dfb', 'Dfc','Dfd', 'Dsa', 'Dsb', 'Dsc', 'Dsd','Dwa', 'Dwb', 'Dwc', 'Dwd', 'EF','ET'))
+  kg_final <- merge(kg_f, key)
   
-  # Load your climate zones data here
-  climate_zones <- st_read("data/climate_zones/1976-2000_GIS/1976-2000.shp") |> st_transform(crs = 4326)
-  
-  # Join the color key with your climate zones data
-  climate_zones <- climate_zones %>% left_join(key, by = "GRIDCODE")
-  
-  # World map base layer
-  world <- ne_countries(scale = "medium", returnclass = "sf") |> st_transform(crs = 4326)
-  
-  # Create a named vector of colors
-  unique_zones <- unique(climate_zones[, c("cl", "color")])
-  color_vector <- setNames(unique_zones$color, unique_zones$cl)
-  
-  # World map base layer
-  world <- ne_countries(scale = "medium", returnclass = "sf")
-  
-  # Plot
-  p_base <- 
+  p_base <-
     ggplot() +
-    geom_sf(data = world, fill = "white", color = "black") +
-    geom_sf(data = climate_zones, aes(fill = factor(cl))) +
-    scale_fill_manual(values = color_vector, name = "Köppen-Geiger Climate Zones") +
-    coord_sf(crs = 4326, datum = NA, ) + # Ensure coordinates are displayed
-    labs(
-      # title = "Global Köppen-Geiger Climate Zones", 
-      # fill = "Köppen-Geiger Climate Zones"
-    ) +
-    theme_minimal() +
-    theme(
-      legend.position = "bottom"
-    ) +
-    guides(fill = guide_legend(ncol = 12, direction = "horizontal", title.position = "top"))
-  
-  p_base
+    # theme_classic() +
+    geom_polygon(data = kg_final, aes(x = long, y = lat, group = group, fill = cl), alpha = 0.8) +
+    # geom_path(data = kg_final, aes(x = long, y = lat, group = group, fill = cl), size = 0.05, color = "black") +
+    ylab("Latitude (Decimal Degree)") +
+    xlab("Longitude (Decimal Degree)") +
+    coord_cartesian(ylim=c(-80, 80)) +
+    scale_fill_manual(values = c("#960000", "#FF0000", "#FF6E6E", "#FFCCCC", "#CC8D14", "#CCAA54", "#FFCC00", "#FFFF64", "#007800", "#005000", "#003200", "#96FF00", "#00D700", "#00AA00", "#BEBE00", "#8C8C00", "#5A5A00", "#550055", "#820082", "#C800C8", "#FF6EFF", "#646464", "#8C8C8C", "#BEBEBE", "#E6E6E6", "#6E28B4", "#B464FA", "#C89BFA", "#C8C8FF", "#6496FF", "#64FFFF", "#F5FFFF")) +
+    theme(legend.position = "bottom") +
+    guides(fill = guide_legend(ncol = 12, direction = "horizontal", title.position = "top")) +
+    labs(fill = "Köppen-Geiger Climate Zone")
   
   return(p_base)
 } 
@@ -4117,36 +3987,16 @@ plot_global_samples <- function(df_in){
     nest() %>% 
     mutate(n = purrr::map_dbl(data, ~nrow(.)))
   
-  # Bugfix because of different source and growth location for medlyn data
-  df <- 
-    df |>
-    mutate(
-      lat = ifelse(sitename == "medlyn_355", 44, lat), 
-      lon = ifelse(sitename == "medlyn_355", 0.58, lon)
-      )
-  
-  # Grouby lat lon and sum up n
-  df <- 
-    df |> 
-    group_by(lat, lon) |> 
-    nest() |> 
-    mutate(n = purrr::map_dbl(data, ~sum(.$n)))
-    
   p_base <- get_kg_climate_plot()
   p_out <-
     p_base +
     geom_point(data = df, aes(x = lon, y = lat, size = n),
                color = "black",
-               pch = 23, 
-               stroke = 1.25,
-               fill = "red") +    
-    # ggtitle(paste0("Global Map of Samples")) +
-    xlab(NULL) +
-    ylab(NULL) +
+               pch = 21, 
+               fill = "white") +    
+    ggtitle(paste0("Global Map of Samples")) +
     labs(size = expression(italic("N"))) +
     guides(size = guide_legend(ncol = 2, direction = "horizontal", title.position = "top")) 
-  
-  p_out
   
   return(p_out) 
 }
