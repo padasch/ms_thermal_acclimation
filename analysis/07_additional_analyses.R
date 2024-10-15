@@ -1,5 +1,6 @@
 # Script for running smaller analyses ----
-dir_tmp <- here("output/additional_analyses/")
+source("R/source.R")
+dir_tmp <- here("output/additional_analyses/", Sys.Date(), "/")
 if (!dir.exists(dir_tmp)) dir.create(dir_tmp, recursive = T, showWarnings = F)
 
 # SINLGE RUNS ----
@@ -7,7 +8,7 @@ if (!dir.exists(dir_tmp)) dir.create(dir_tmp, recursive = T, showWarnings = F)
 settings <- get_settings()
 settings$daily_conditions <- "B"
 settings$tau <- 15
-# settings$method_ftemp <- "leuning02" 
+# settings$method_ftemp <- "kumarathunge19_fixed" 
 # settings$rpmodel_exp <- 2000
 settings$load_forcing <- F
 out <- k19_from_forc_to_plot(settings)
@@ -93,7 +94,7 @@ ggsave(paste0(dir_save, "/response-of-each-site.pdf"),
 settings <- get_settings()
 settings$daily_conditions <- "B"
 settings$tau <- 15
-settings$method_ftemp <- "leuning02"
+settings$method_ftemp <- "kumarathunge19_fixed"
 out <- k19_from_forc_to_plot(settings)
 
 dir_save <- paste0(dir_tmp, "replacing_k19_with_l02")
@@ -138,7 +139,7 @@ plots_tspan    <- list()
 for (i in 1:length(par_vec)) {
   
   # Preparations
-  message("\014 [>] Working on ", i, "/", length(par_vec), ": ", par_vec[i])
+  message("[>] Working on ", i, "/", length(par_vec), ": ", par_vec[i])
   
   # Overwrite settings with looped variables
   settings$kphio_calib <- par_vec[i]
@@ -347,12 +348,12 @@ p_final_tspan <-
   theme(legend.position = "bottom") &
   plot_annotation(subtitle = bquote("Effect of" ~ varphi[0] ~ "on" ~ T[span]))
 
-sub_dir <- here("output/additional_analyses/calibration/kphio")
+sub_dir <- here("output/additional_analyses/", Sys.Date(), "/calibration/kphio")
 
-ggsave(paste0(sub_dir, "/000_topt.pdf"), p_final_topt, height = 4, width = 4)
-ggsave(paste0(sub_dir, "/000_aopt.pdf"), p_final_aopt, height = 4, width = 4)
-# ggsave(paste0(sub_dir, "/000_agro.pdf"), p_final_agro, height = 4, width = 4)
-ggsave(paste0(sub_dir, "/000_tspan.pdf"), p_final_tspan, height = 4, width = 4)
+ggsave(paste0(sub_dir, "/000_topt.pdf"), p_final_topt, height = 6, width = 6)
+ggsave(paste0(sub_dir, "/000_aopt.pdf"), p_final_aopt, height = 6, width = 6)
+# ggsave(paste0(sub_dir, "/000_agro.pdf"), p_final_agro, height = 6, width = 6)
+ggsave(paste0(sub_dir, "/000_tspan.pdf"), p_final_tspan, height = 6, width = 6)
 
 # ├— Final SI Fig. ----
 p <- (p_metrics / p_final_aopt) & 
@@ -360,7 +361,7 @@ p <- (p_metrics / p_final_aopt) &
   theme(text = element_text(size = 10),
         plot.tag = element_text(face = "bold"))
 
-ggsave(here("output/additional_analyses/calibration/kphio/si-effect-kphio.pdf"), p, height = 12, width = 8)
+ggsave(here("output/additional_analyses/", Sys.Date(), "/calibration/kphio/si-effect-kphio.pdf"), p, height = 12, width = 8)
 
 # ├ Effect of acclimation assumption and timescale -----------------------------
 # This section is to test the effect of different acclimation timescales
@@ -403,7 +404,7 @@ for (cond in vec_cond) {
         }
       }
       
-      message("\014 [>] Working on: ", cond, " ", time)
+      message("[>] Working on: ", cond, " ", time)
 
       # Overwrite settings with looped variables
       settings$daily_conditions <- cond
@@ -558,9 +559,11 @@ p_metrics_tspan <-
 p_metrics <- p_metrics_topt + p_metrics_aopt + p_metrics_tspan + plot_layout(guides = "collect")
 
 p_full <- 
-  p_metrics / (plots_topt$B$tau_1    + labs(title = expression(paste(tau, " = 1")), caption = NULL) +
-               plots_topt$B$tau_15 + labs(title = expression(paste(tau, " = 15")), caption = NULL) +
-               plots_topt$B$tau_60 + labs(title = expression(paste(tau, " = 60")), caption = NULL)) +
+  p_metrics / 
+  (plots_topt$B$tau_1    + labs(title = expression(paste(tau, " = 1")), caption = NULL) +
+     plots_topt$B$tau_15 + labs(title = expression(paste(tau, " = 15")), caption = NULL) +
+     plots_topt$B$tau_60 + labs(title = expression(paste(tau, " = 60")), caption = NULL)
+   )+
   plot_layout(guides = "collect") &
   plot_annotation(tag_levels = "A", tag_suffix = ".)") &
   theme(legend.position = "bottom",
@@ -569,7 +572,14 @@ p_full <-
 
 dir_save <- paste0(dir_tmp, "calibration/acclimation-assumption/")
 if (!dir.exists(dir_save)) dir.create(dir_save, recursive = T, showWarnings = F)
-ggsave(paste0(dir_save, "/acc-assumption.pdf"), p_full, height = 10, width = 10)
+ggsave(paste0(dir_save, "/acc-assumption-large.pdf"), p_full, height = 10, width = 10)
+
+ggsave(
+  paste0(dir_save, "/acc-assumption.pdf"),
+  p_metrics,
+  height = 7,
+  width = 8
+)
 
 ## ├—— Metrics vs. Tau with example plots below ----
 
@@ -625,7 +635,7 @@ for (cond in vec_cond) {
 # . ----
 # OTHER TESTS ----
 # ├ High Light Test ----
-dir_save <- here("output/additional_analyses/high-light")
+dir_save <- here("output/additional_analyses/", Sys.Date(), "/high-light")
 if (!dir.exists(dir_save)) dir.create(dir_save, recursive = T, showWarnings = F)
 settings <- get_settings()
 settings$daily_conditions <- "B"
@@ -649,12 +659,12 @@ ggsave(paste0(dir_save, "/modobs-all.pdf"),
 
 # ├ VPD Approach ----
 
-dir_tmp <- here("output/additional_analyses/vpd-approach/")
+dir_tmp <- here("output/additional_analyses/", Sys.Date(), "/vpd-approach/")
 if (!dir.exists(dir_tmp)) dir.create(dir_tmp, recursive = T, showWarnings = F)
 
 ## Best Model (Climate Scaled)
 settings     <- get_settings()
-settings$save_plots <- F
+settings$save_plots <- T
 settings$daily_conditions <- "B"
 settings$tau <- 15
 out_bm     <- k19_from_forc_to_plot(settings)
@@ -701,7 +711,7 @@ p_topt <-
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 
-ggsave(paste0(dir_tmp, "/topt_comparison.pdf"),
+ggsave(paste0(dir_tmp, "/vpd_method_topt_comparison.pdf"),
        p_topt,
        height = 5,
        width  = 12)
@@ -713,7 +723,7 @@ p_aopt <-
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 
-ggsave(paste0(dir_tmp, "/aopt_comparison.pdf"),
+ggsave(paste0(dir_tmp, "/vpd_method_aopt_comparison.pdf"),
        p_aopt,
        height = 5,
        width  = 12)
@@ -725,7 +735,7 @@ p_tspan <-
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 
-ggsave(paste0(dir_tmp, "/tspan_comparison.pdf"),
+ggsave(paste0(dir_tmp, "/vpd_method_tspan_comparison.pdf"),
        p_tspan,
        height = 5,
        width  = 12)
@@ -754,7 +764,7 @@ ggsave(paste0(dir_tmp, "/vpd_approach_comparison.pdf"),
        width  = 12)
 
 # ├ Growth Conditions as Instant Forcing ----
-dir_tmp <- here("output/additional_analyses/growth_forcing_as_instant/")
+dir_tmp <- here("output/additional_analyses/", Sys.Date(), "/growth_forcing_as_instant/")
 if (!dir.exists(dir_tmp)) dir.create(dir_tmp, recursive = T, showWarnings = F)
 
 settings <- get_settings()
@@ -811,5 +821,70 @@ ggsave(paste0(dir_tmp, "/modelled-observed-patterns.pdf"),
 
 ggsave(paste0(dir_tmp, "/curve-shape-per-climate.pdf"),
        p_all$p_scaled_cl_2,
+       height = 4,
+       width = 8)
+
+# __________________________________________________________________________________________________
+# ftemp Vcmax and Jmax ####
+
+library(tidyverse)
+library(patchwork)
+
+# User input for common parameters
+method_ftemp <- "kumarathunge19"
+
+# Plot 1: Vcmax curves
+df_vcmax <- expand_grid(
+  tc_leaf = 1:40,
+  tc_growth = c(5, 10, 15, 20, 25, 30, 35, 40),
+) %>%
+  mutate(
+    ftemp_value = calc_ftemp_inst_vcmax(tcleaf = tc_leaf, tcgrowth = tc_growth, method_ftemp = method_ftemp)
+  )
+
+plot_vcmax <- ggplot(df_vcmax, aes(x = tc_leaf, y = ftemp_value, color = as.factor(tc_growth))) +
+  geom_line() +
+  scale_color_viridis_d() +  # Better color scheme
+  labs(
+    x = expression("Leaf Temperature (°C)"),
+    y = expression(italic(V)[cmax] * " (Relative)"),
+    color = "Growth Temperature (°C)",
+    title = expression(italic(V)[cmax] * " Temperature Response Curves")
+  ) +
+  # theme_minimal() +
+  theme(legend.position = "bottom")
+
+# Plot 2: Jmax curves
+df_jmax <- expand_grid(
+  tc_leaf = 1:40,
+  tc_growth = c(5, 10, 15, 20, 25, 30, 35, 40),
+) %>%
+  mutate(
+    ftemp_value = calc_ftemp_inst_jmax(tcleaf = tc_leaf, tcgrowth = tc_growth, tchome = 25, method_ftemp = method_ftemp)
+  )
+
+plot_jmax <- ggplot(df_jmax, aes(x = tc_leaf, y = ftemp_value, color = as.factor(tc_growth))) +
+  geom_line() +
+  scale_color_viridis_d() +  # Same color scheme
+  labs(
+    x = expression("Leaf Temperature (°C)"),
+    y = expression(italic(J)[max] * " (Relative)"),
+    color = "Growth Temperature (°C)",
+    title = expression(italic(J)[max] * " Temperature Response Curves")
+  ) +
+  # theme_minimal() +
+  theme(legend.position = "bottom")
+
+# Combine the plots using patchwork and ensure a single legend
+combined_plot <- plot_vcmax + plot_jmax +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+# Display the combined plot
+print(combined_plot)
+
+
+ggsave(paste0(dir_tmp, "/ftemp_vcmax_jmax.pdf"),
+       combined_plot,
        height = 4,
        width = 8)
