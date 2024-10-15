@@ -1,15 +1,19 @@
 # SEASONALITY OF TRAITS ----
+source("R/source.R")
+
 # ├ Meta toggles ----
 debug_slice <- F
-step_size_tcair   <- 0.5
+step_size_tcair   <- 1
 set_add <- list()
 set_add$min_topt_per_year <- 3
 set_add$without_noise <- T
 set_add$high_light    <- T
 set_add$vpd_scaled    <- F
+vcmax25_source <- "kumar19"
 
 dir_analysis <- "seasonality"
-dir_tmp <- NA
+dir_tmp      <- "final_stepsize-0.5"
+
 
 ## Define directories ----
 # First check how many runs have been made to add counter
@@ -44,7 +48,7 @@ for (i in 1:nrow(df_ref)) {
   df_ref$tmp_id[[i]] <- paste0(df_ref$sitename[[i]], df_ref$date[[i]])
 }
 
-# Update df_ref to hold fitter response curves
+# Update df_ref to hold fitted response curves
 df_tmp <- df_ref %>% mutate(fit_thermal_response = list(tibble()))
 
 for (i in 1:nrow(df_tmp)) {
@@ -168,10 +172,11 @@ df_inst_fullacc  <- run_inst_for_365_days(df_acc_fullacc,
 # ├— No Acc. ----------------------------------------------------------------------
 settings <- get_settings()
 settings$save_plots <- F
-settings$method_ftemp <- "leuning02"
+settings$method_vcmax25 = "kumar19"
+settings$method_ftemp <- "kumarathunge19_fixed"
 
 df_acc_noacc   <- k19_run_acc(df_forc_b15, settings)
-df_acc_noacc   <- replace_acclimated_with_pfts(df_acc_noacc, TRUE, TRUE)
+df_acc_noacc   <- replace_acclimated_with_pfts(df_acc_noacc, TRUE, TRUE, jvr_method = settings$method_ftemp, vcmax25_source)
 df_inst_noacc  <- run_inst_for_365_days(df_acc_noacc, 
                                         settings, 
                                         setup = "noacc", 
@@ -181,68 +186,71 @@ df_inst_noacc  <- run_inst_for_365_days(df_acc_noacc,
 saveRDS(df_inst_noacc, here(dir_mods, "/noacc/df_inst.rds"))
 
 
-# ├— ER - Enzymatic Reactions (ftemp) ------------------------------------------
-
-## Update Settings
-settings <- get_settings()
-settings$save_plots <- F
-
-df_acc_er   <- k19_run_acc(df_forc_b15, settings)
-df_acc_er   <- replace_acclimated_with_pfts(df_acc_er, TRUE, TRUE)
-df_inst_er  <- run_inst_for_365_days(df_acc_er, 
-                                        settings, 
-                                        setup = "er", 
-                                        dir_mods,
-                                        set_add)
-
-saveRDS(df_inst_er, here(dir_mods, "/er/df_inst.rds"))
-
-# ├— SB - Stomatal Behavior (Xi) -----------------------------------------------
-settings <- get_settings()
-settings$save_plots <- F
-settings$method_ftemp <- "leuning02"
-
-df_acc_sb   <- k19_run_acc(df_forc_b15, settings)
-df_acc_sb   <- replace_acclimated_with_pfts(df_acc_sb, replace_pc = TRUE, replace_xi = FALSE)
-df_inst_sb  <- run_inst_for_365_days(df_acc_sb, 
-                                     settings, 
-                                     setup = "sb", 
-                                     dir_mods,
-                                     set_add)
-
-saveRDS(df_inst_sb, here(dir_mods, "/sb/df_inst.rds"))
-
-
-# ├— PC - Photosynthetic Capacity (Vcmax_acc, Jmax_acc) -------------------------
-settings <- get_settings()
-settings$save_plots <- F
-settings$method_ftemp <- "leuning02"
-
-df_acc_pc   <- k19_run_acc(df_forc_b15, settings)
-df_acc_pc   <- replace_acclimated_with_pfts(df_acc_pc, replace_pc = FALSE, replace_xi = TRUE)
-df_inst_pc  <- run_inst_for_365_days(df_acc_pc, 
-                                     settings, 
-                                     setup = "pc", 
-                                     dir_mods,
-                                     set_add)
-
-saveRDS(df_inst_pc, here(dir_mods, "/pc/df_inst.rds"))
+# # ├— ER - Enzymatic Reactions (ftemp) ------------------------------------------
+# 
+# ## Update Settings
+# settings <- get_settings()
+# settings$save_plots <- F
+# settings$method_vcmax25 = "kumar19"
+# settings$method_ftemp <- "kumarathunge19"
+# 
+# df_acc_er   <- k19_run_acc(df_forc_b15, settings)
+# df_acc_er   <- replace_acclimated_with_pfts(df_acc_er, TRUE, TRUE, jvr_method = settings$method_ftemp, vcmax25_source)
+# df_inst_er  <- run_inst_for_365_days(df_acc_er, 
+#                                         settings, 
+#                                         setup = "er", 
+#                                         dir_mods,
+#                                         set_add)
+# 
+# saveRDS(df_inst_er, here(dir_mods, "/er/df_inst.rds"))
+# 
+# # ├— SB - Stomatal Behavior (Xi) -----------------------------------------------
+# settings <- get_settings()
+# settings$save_plots <- F
+# settings$method_vcmax25 = "kumar19"
+# settings$method_ftemp <- "kumarathunge19_fixed"
+# 
+# df_acc_sb   <- k19_run_acc(df_forc_b15, settings)
+# df_acc_sb   <- replace_acclimated_with_pfts(df_acc_sb, replace_pc = TRUE, replace_xi = FALSE, jvr_method = settings$method_ftemp, vcmax25_source)
+# df_inst_sb  <- run_inst_for_365_days(df_acc_sb, 
+#                                      settings, 
+#                                      setup = "sb", 
+#                                      dir_mods,
+#                                      set_add)
+# 
+# saveRDS(df_inst_sb, here(dir_mods, "/sb/df_inst.rds"))
+# 
+# 
+# # ├— PC - Photosynthetic Capacity (Vcmax_acc, Jmax_acc) -------------------------
+# settings <- get_settings()
+# settings$save_plots <- F
+# settings$method_ftemp <- "kumarathunge19_fixed"
+# 
+# df_acc_pc   <- k19_run_acc(df_forc_b15, settings)
+# df_acc_pc   <- replace_acclimated_with_pfts(df_acc_pc, replace_pc = FALSE, replace_xi = TRUE, jvr_method = settings$method_ftemp, vcmax25_source)
+# df_inst_pc  <- run_inst_for_365_days(df_acc_pc, 
+#                                      settings, 
+#                                      setup = "pc", 
+#                                      dir_mods,
+#                                      set_add)
+# 
+# saveRDS(df_inst_pc, here(dir_mods, "/pc/df_inst.rds"))
 
 # ├ Analysis ------------------------------------------
 # ├— Load Data ------------------------------------------
 
 df_inst_fullacc <- readRDS(here(dir_mods, "/fullacc/df_inst.rds"))
 df_inst_noacc <- readRDS(here(dir_mods, "/noacc/df_inst.rds"))
-df_inst_er <- readRDS(here(dir_mods, "/er/df_inst.rds"))
-df_inst_sb <- readRDS(here(dir_mods, "/sb/df_inst.rds"))
-df_inst_pc <- readRDS(here(dir_mods, "/pc/df_inst.rds"))
+# df_inst_er <- readRDS(here(dir_mods, "/er/df_inst.rds"))
+# df_inst_sb <- readRDS(here(dir_mods, "/sb/df_inst.rds"))
+# df_inst_pc <- readRDS(here(dir_mods, "/pc/df_inst.rds"))
 
 # ├— Plots (individual) ------------------------------------------
 p_fullacc <- temporal_individual_plots(df_inst_fullacc, "fullacc", dir_figs = dir_figs)
 p_noacc <- temporal_individual_plots(df_inst_noacc, "noacc", dir_figs = dir_figs)
-p_er <- temporal_individual_plots(df_inst_er, "er", dir_figs = dir_figs)
-p_sb <- temporal_individual_plots(df_inst_sb, "sb", dir_figs = dir_figs)
-p_pc <- temporal_individual_plots(df_inst_pc, "pc", dir_figs = dir_figs)
+# p_er <- temporal_individual_plots(df_inst_er, "er", dir_figs = dir_figs)
+# p_sb <- temporal_individual_plots(df_inst_sb, "sb", dir_figs = dir_figs)
+# p_pc <- temporal_individual_plots(df_inst_pc, "pc", dir_figs = dir_figs)
 
 # Reduce dfs and combine them per setup
 df_fullacc <- 
@@ -259,26 +267,26 @@ df_noacc   <-
   unnest(c(mod, obs), names_sep = "_") %>% 
   mutate(setup = "noacc")
 
-df_er      <- 
-  df_inst_er %>% 
-  dplyr::select(sitename, date, fit_opt, rpm_sim, site_year) %>% 
-  rename(mod = rpm_sim, obs = fit_opt) %>% 
-  unnest(c(mod, obs), names_sep = "_") %>% 
-  mutate(setup = "er")
-
-df_sb      <- 
-  df_inst_sb %>% 
-  dplyr::select(sitename, date, fit_opt, rpm_sim, site_year) %>% 
-  rename(mod = rpm_sim, obs = fit_opt) %>% 
-  unnest(c(mod, obs), names_sep = "_") %>% 
-  mutate(setup = "sb")
-
-df_pc      <- 
-  df_inst_pc %>% 
-  dplyr::select(sitename, date, fit_opt, rpm_sim, site_year) %>% 
-  rename(mod = rpm_sim, obs = fit_opt) %>% 
-  unnest(c(mod, obs), names_sep = "_") %>% 
-  mutate(setup = "pc")
+# df_er      <- 
+#   df_inst_er %>% 
+#   dplyr::select(sitename, date, fit_opt, rpm_sim, site_year) %>% 
+#   rename(mod = rpm_sim, obs = fit_opt) %>% 
+#   unnest(c(mod, obs), names_sep = "_") %>% 
+#   mutate(setup = "er")
+# 
+# df_sb      <- 
+#   df_inst_sb %>% 
+#   dplyr::select(sitename, date, fit_opt, rpm_sim, site_year) %>% 
+#   rename(mod = rpm_sim, obs = fit_opt) %>% 
+#   unnest(c(mod, obs), names_sep = "_") %>% 
+#   mutate(setup = "sb")
+# 
+# df_pc      <- 
+#   df_inst_pc %>% 
+#   dplyr::select(sitename, date, fit_opt, rpm_sim, site_year) %>% 
+#   rename(mod = rpm_sim, obs = fit_opt) %>% 
+#   unnest(c(mod, obs), names_sep = "_") %>% 
+#   mutate(setup = "pc")
 
 # ├— Plots (multiple) ------------------------------------------
 # ├—— noacc - fullacc - observations ----
@@ -295,249 +303,249 @@ br <- c("noacc", "fullacc", "obs")
 lb <- c("No Acc.", "Full Acc.", "Observ.")
 
 
-df_all <- 
-  rbind(df_fullacc, 
-        df_noacc) %>%
-  left_join(df_inst_fullacc %>% 
-              dplyr::select(sitename, date, forcing_growth, forcing_d, site_year))
-
-# T_opt
-p_topt_season <- 
-  df_all %>% 
-  ggplot() +
-  aes(x = date) +
-  geom_line(aes(y = mod_tc_opt, group = setup, color = setup)) +
-  geom_errorbar(aes(y = obs_tc_opt, 
-                      ymin = obs_tc_opt - obs_tc_opt_se, 
-                      ymax = obs_tc_opt + obs_tc_opt_se,
-                      color = "obs")) +
-  geom_point(aes(y = obs_tc_opt, 
-                 color = "obs",
-                 ),
-             fill = "black",
-             size = 2,
-             shape = 21) +
-  scale_color_manual(name = "",
-                     breaks = br,
-                     labels = lb,
-                     values = cl,
-                     guide = guide_legend(override.aes = list(shape  = sh,
-                                                              size   = sz,
-                                                              linetype = lt,
-                                                              fill  = fl,
-                                                              color = cl))) +
-  guides(fill = "none") +
-  theme_linedraw() +
-  facet_wrap(~site_year, scales = "free_x", ncol = 1) +
-  ylim(0, 40) +
-  labs(y = bquote("Temperature [°C]"),
-       x = "Date") 
-
-ggsave(paste0(dir_figs, "/noacc-fullacc_topt.png"), p_topt_season, width = 12, height = 12)
-
-## A_opt
-p_aopt_season <- 
-  df_all %>% 
-  ggplot() +
-  aes(x = date) +
-  geom_line(aes(y = mod_anet_opt, group = setup, color = setup)) +
-  geom_errorbar(aes(y = obs_tc_opt, 
-                    ymin = obs_anet_opt - obs_anet_opt_se, 
-                    ymax = obs_anet_opt + obs_anet_opt_se,
-                    color = "obs")) +
-  geom_point(aes(y = obs_anet_opt, 
-                 color = "obs",
-  ),
-  fill = "black",
-  size = 2,
-  shape = 21) +
-  scale_color_manual(name = "",
-                     breaks = br,
-                     labels = lb,
-                     values = cl,
-                     guide = guide_legend(override.aes = list(shape  = sh,
-                                                              size   = sz,
-                                                              linetype = lt,
-                                                              fill  = fl,
-                                                              color = cl))) +
-  guides(fill = "none") +
-  theme_linedraw() +
-  facet_wrap(~site_year, scales = "free_x", ncol = 1) +
-  ylim(0, 40) +
-  labs(y = bquote(A[opt] ~ "[µmol m¯² s¯¹]"),
-       x = "Date") 
-
-ggsave(paste0(dir_figs, "/noacc-fullacc_aopt.png"), p_aopt_season, width = 12, height = 12)
-
-## T_span
-p_tspan_season <- 
-  df_all %>% 
-  ggplot() +
-  aes(x = date) +
-  geom_line(aes(y = mod_tspan, group = setup, color = setup)) +
-  geom_point(aes(y = obs_tspan, 
-                 color = "obs",
-  ),
-  fill = "black",
-  size = 2,
-  shape = 21) +
-  scale_color_manual(name = "",
-                     breaks = br,
-                     labels = lb,
-                     values = cl,
-                     guide = guide_legend(override.aes = list(shape  = sh,
-                                                              size   = sz,
-                                                              linetype = lt,
-                                                              fill  = fl,
-                                                              color = cl))) +
-  guides(fill = "none") +
-  theme_linedraw() +
-  facet_wrap(~site_year, scales = "free_x", ncol = 1) +
-  ylim(0, 40) +
-  labs(y = bquote("Temperature [°C]"),
-       x = "Date") 
-
-ggsave(paste0(dir_figs, "/noacc-fullacc_tspan.png"), p_tspan_season, width = 12, height = 12)
-
-p_all <- 
-  (p_topt_season + p_aopt_season + p_tspan_season) +
-  plot_layout(ncol = 3,
-              guides = "collect") &
-  theme(legend.position = "bottom")
-
-ggsave(paste0(dir_figs, "/noacc-fullacc_ALL.png"), p_all, width = 12, height = 12)
-
-# ├—— all setups at once ----
-df_all <- 
-  rbind(df_er,
-        df_fullacc,
-        df_noacc,
-        df_sb,
-        df_pc) %>%
-  left_join(df_inst_fullacc %>% 
-              dplyr::select(sitename, date, forcing_growth, forcing_d, site_year))
-
-# Aesthetics
-# br <- c("er", "sb", "pc", "obs")
-# lb <- c("ER", "SB", "PC", "Observ.")
-br <- c("noacc", "fullacc", "er", "sb", "pc", "obs")
-lb <- c("No Acc.", "Full Acc.", "ER", "SB", "PC", "Observ.")
-
-n_tmp <- length(br) - 1
-
-sh <- c(rep(NA, n_tmp), 21)
-sz <- c(rep(1, n_tmp), 2)
-lt <- c(rep(1, n_tmp), 0)
-fl <- c(rep(NA, n_tmp), "black")
-cl <- c(vec_cols[1:n_tmp], "black")
-
-# Try to get a facet_grid (needs to much effort right now)
-
-# T_opt
-p_topt_season <- 
-  df_all %>% 
-  ggplot() +
-  aes(x = date) +
-  geom_line(aes(y = mod_tc_opt, group = setup, color = setup)) +
-  geom_errorbar(aes(y = obs_tc_opt, 
-                      ymin = obs_tc_opt - obs_tc_opt_se, 
-                      ymax = obs_tc_opt + obs_tc_opt_se,
-                      color = "obs")) +
-  geom_point(aes(y = obs_tc_opt, 
-                 color = "obs",
-                 ),
-             fill = "black",
-             size = 2,
-             shape = 21) +
-  scale_color_manual(name = "",
-                     breaks = br,
-                     labels = lb,
-                     values = cl,
-                     guide = guide_legend(override.aes = list(shape  = sh,
-                                                              size   = sz,
-                                                              linetype = lt,
-                                                              fill  = fl,
-                                                              color = cl))) +
-  guides(fill = "none") +
-  theme_linedraw() +
-  facet_wrap(~site_year, scales = "free_x", ncol = 1) +
-  ylim(0, 40) +
-  labs(y = bquote("Temperature [°C]"),
-       x = "Date") 
-
-ggsave(paste0(dir_figs, "/all_topt.png"), p_topt_season, width = 12, height = 12)
-
-## A_opt
-p_aopt_season <- 
-  df_all %>% 
-  ggplot() +
-  aes(x = date) +
-  geom_line(aes(y = mod_anet_opt, group = setup, color = setup)) +
-  geom_errorbar(aes(y = obs_tc_opt, 
-                    ymin = obs_anet_opt - obs_anet_opt_se, 
-                    ymax = obs_anet_opt + obs_anet_opt_se,
-                    color = "obs")) +
-  geom_point(aes(y = obs_anet_opt, 
-                 color = "obs",
-  ),
-  fill = "black",
-  size = 2,
-  shape = 21) +
-  scale_color_manual(name = "",
-                     breaks = br,
-                     labels = lb,
-                     values = cl,
-                     guide = guide_legend(override.aes = list(shape  = sh,
-                                                              size   = sz,
-                                                              linetype = lt,
-                                                              fill  = fl,
-                                                              color = cl))) +
-  guides(fill = "none") +
-  theme_linedraw() +
-  facet_wrap(~site_year, scales = "free_x", ncol = 1) +
-  ylim(0, 40) +
-  labs(y = bquote(A[opt] ~ "[µmol m¯² s¯¹]"),
-       x = "Date") 
-
-ggsave(paste0(dir_figs, "/all_aopt.png"), p_aopt_season, width = 12, height = 12)
-
-## T_span
-p_tspan_season <- 
-  df_all %>% 
-  ggplot() +
-  aes(x = date) +
-  geom_line(aes(y = mod_tspan, group = setup, color = setup)) +
-  geom_point(aes(y = obs_tspan, 
-                 color = "obs",
-  ),
-  fill = "black",
-  size = 2,
-  shape = 21) +
-  scale_color_manual(name = "",
-                     breaks = br,
-                     labels = lb,
-                     values = cl,
-                     guide = guide_legend(override.aes = list(shape  = sh,
-                                                              size   = sz,
-                                                              linetype = lt,
-                                                              fill  = fl,
-                                                              color = cl))) +
-  guides(fill = "none") +
-  theme_linedraw() +
-  facet_wrap(~site_year, scales = "free_x", ncol = 1) +
-  ylim(0, 40) +
-  labs(y = bquote("Temperature [°C]"),
-       x = "Date") 
-
-ggsave(paste0(dir_figs, "/all_tspan.png"), p_tspan_season, width = 12, height = 12)
-
-p_all <- 
-  (p_topt_season + p_aopt_season + p_tspan_season) +
-  plot_layout(ncol = 3,
-              guides = "collect") &
-  theme(legend.position = "bottom")
-
-ggsave(paste0(dir_figs, "/all_ALL.png"), p_all, width = 12, height = 12)
+# df_all <- 
+#   rbind(df_fullacc, 
+#         df_noacc) %>%
+#   left_join(df_inst_fullacc %>% 
+#               dplyr::select(sitename, date, forcing_growth, forcing_d, site_year))
+# 
+# # T_opt
+# p_topt_season <- 
+#   df_all %>% 
+#   ggplot() +
+#   aes(x = date) +
+#   geom_line(aes(y = mod_tc_opt, group = setup, color = setup)) +
+#   geom_errorbar(aes(y = obs_tc_opt, 
+#                       ymin = obs_tc_opt - obs_tc_opt_se, 
+#                       ymax = obs_tc_opt + obs_tc_opt_se,
+#                       color = "obs")) +
+#   geom_point(aes(y = obs_tc_opt, 
+#                  color = "obs",
+#                  ),
+#              fill = "black",
+#              size = 2,
+#              shape = 21) +
+#   scale_color_manual(name = "",
+#                      breaks = br,
+#                      labels = lb,
+#                      values = cl,
+#                      guide = guide_legend(override.aes = list(shape  = sh,
+#                                                               size   = sz,
+#                                                               linetype = lt,
+#                                                               fill  = fl,
+#                                                               color = cl))) +
+#   guides(fill = "none") +
+#   theme_linedraw() +
+#   facet_wrap(~site_year, scales = "free_x", ncol = 1) +
+#   ylim(0, 40) +
+#   labs(y = bquote("Temperature [°C]"),
+#        x = "Date") 
+# 
+# ggsave(paste0(dir_figs, "/noacc-fullacc_topt.png"), p_topt_season, width = 12, height = 12)
+# 
+# ## A_opt
+# p_aopt_season <- 
+#   df_all %>% 
+#   ggplot() +
+#   aes(x = date) +
+#   geom_line(aes(y = mod_anet_opt, group = setup, color = setup)) +
+#   geom_errorbar(aes(y = obs_tc_opt, 
+#                     ymin = obs_anet_opt - obs_anet_opt_se, 
+#                     ymax = obs_anet_opt + obs_anet_opt_se,
+#                     color = "obs")) +
+#   geom_point(aes(y = obs_anet_opt, 
+#                  color = "obs",
+#   ),
+#   fill = "black",
+#   size = 2,
+#   shape = 21) +
+#   scale_color_manual(name = "",
+#                      breaks = br,
+#                      labels = lb,
+#                      values = cl,
+#                      guide = guide_legend(override.aes = list(shape  = sh,
+#                                                               size   = sz,
+#                                                               linetype = lt,
+#                                                               fill  = fl,
+#                                                               color = cl))) +
+#   guides(fill = "none") +
+#   theme_linedraw() +
+#   facet_wrap(~site_year, scales = "free_x", ncol = 1) +
+#   ylim(0, 40) +
+#   labs(y = bquote(A[opt] ~ "[µmol m¯² s¯¹]"),
+#        x = "Date") 
+# 
+# ggsave(paste0(dir_figs, "/noacc-fullacc_aopt.png"), p_aopt_season, width = 12, height = 12)
+# 
+# ## T_span
+# p_tspan_season <- 
+#   df_all %>% 
+#   ggplot() +
+#   aes(x = date) +
+#   geom_line(aes(y = mod_tspan, group = setup, color = setup)) +
+#   geom_point(aes(y = obs_tspan, 
+#                  color = "obs",
+#   ),
+#   fill = "black",
+#   size = 2,
+#   shape = 21) +
+#   scale_color_manual(name = "",
+#                      breaks = br,
+#                      labels = lb,
+#                      values = cl,
+#                      guide = guide_legend(override.aes = list(shape  = sh,
+#                                                               size   = sz,
+#                                                               linetype = lt,
+#                                                               fill  = fl,
+#                                                               color = cl))) +
+#   guides(fill = "none") +
+#   theme_linedraw() +
+#   facet_wrap(~site_year, scales = "free_x", ncol = 1) +
+#   ylim(0, 40) +
+#   labs(y = bquote("Temperature [°C]"),
+#        x = "Date") 
+# 
+# ggsave(paste0(dir_figs, "/noacc-fullacc_tspan.png"), p_tspan_season, width = 12, height = 12)
+# 
+# p_all <- 
+#   (p_topt_season + p_aopt_season + p_tspan_season) +
+#   plot_layout(ncol = 3,
+#               guides = "collect") &
+#   theme(legend.position = "bottom")
+# 
+# ggsave(paste0(dir_figs, "/noacc-fullacc_ALL.png"), p_all, width = 12, height = 12)
+# 
+# # ├—— all setups at once ----
+# df_all <- 
+#   rbind(df_er,
+#         df_fullacc,
+#         df_noacc,
+#         df_sb,
+#         df_pc) %>%
+#   left_join(df_inst_fullacc %>% 
+#               dplyr::select(sitename, date, forcing_growth, forcing_d, site_year))
+# 
+# # Aesthetics
+# # br <- c("er", "sb", "pc", "obs")
+# # lb <- c("ER", "SB", "PC", "Observ.")
+# br <- c("noacc", "fullacc", "er", "sb", "pc", "obs")
+# lb <- c("No Acc.", "Full Acc.", "ER", "SB", "PC", "Observ.")
+# 
+# n_tmp <- length(br) - 1
+# 
+# sh <- c(rep(NA, n_tmp), 21)
+# sz <- c(rep(1, n_tmp), 2)
+# lt <- c(rep(1, n_tmp), 0)
+# fl <- c(rep(NA, n_tmp), "black")
+# cl <- c(vec_cols[1:n_tmp], "black")
+# 
+# # Try to get a facet_grid (needs to much effort right now)
+# 
+# # T_opt
+# p_topt_season <- 
+#   df_all %>% 
+#   ggplot() +
+#   aes(x = date) +
+#   geom_line(aes(y = mod_tc_opt, group = setup, color = setup)) +
+#   geom_errorbar(aes(y = obs_tc_opt, 
+#                       ymin = obs_tc_opt - obs_tc_opt_se, 
+#                       ymax = obs_tc_opt + obs_tc_opt_se,
+#                       color = "obs")) +
+#   geom_point(aes(y = obs_tc_opt, 
+#                  color = "obs",
+#                  ),
+#              fill = "black",
+#              size = 2,
+#              shape = 21) +
+#   scale_color_manual(name = "",
+#                      breaks = br,
+#                      labels = lb,
+#                      values = cl,
+#                      guide = guide_legend(override.aes = list(shape  = sh,
+#                                                               size   = sz,
+#                                                               linetype = lt,
+#                                                               fill  = fl,
+#                                                               color = cl))) +
+#   guides(fill = "none") +
+#   theme_linedraw() +
+#   facet_wrap(~site_year, scales = "free_x", ncol = 1) +
+#   ylim(0, 40) +
+#   labs(y = bquote("Temperature [°C]"),
+#        x = "Date") 
+# 
+# ggsave(paste0(dir_figs, "/all_topt.png"), p_topt_season, width = 12, height = 12)
+# 
+# ## A_opt
+# p_aopt_season <- 
+#   df_all %>% 
+#   ggplot() +
+#   aes(x = date) +
+#   geom_line(aes(y = mod_anet_opt, group = setup, color = setup)) +
+#   geom_errorbar(aes(y = obs_tc_opt, 
+#                     ymin = obs_anet_opt - obs_anet_opt_se, 
+#                     ymax = obs_anet_opt + obs_anet_opt_se,
+#                     color = "obs")) +
+#   geom_point(aes(y = obs_anet_opt, 
+#                  color = "obs",
+#   ),
+#   fill = "black",
+#   size = 2,
+#   shape = 21) +
+#   scale_color_manual(name = "",
+#                      breaks = br,
+#                      labels = lb,
+#                      values = cl,
+#                      guide = guide_legend(override.aes = list(shape  = sh,
+#                                                               size   = sz,
+#                                                               linetype = lt,
+#                                                               fill  = fl,
+#                                                               color = cl))) +
+#   guides(fill = "none") +
+#   theme_linedraw() +
+#   facet_wrap(~site_year, scales = "free_x", ncol = 1) +
+#   ylim(0, 40) +
+#   labs(y = bquote(A[opt] ~ "[µmol m¯² s¯¹]"),
+#        x = "Date") 
+# 
+# ggsave(paste0(dir_figs, "/all_aopt.png"), p_aopt_season, width = 12, height = 12)
+# 
+# ## T_span
+# p_tspan_season <- 
+#   df_all %>% 
+#   ggplot() +
+#   aes(x = date) +
+#   geom_line(aes(y = mod_tspan, group = setup, color = setup)) +
+#   geom_point(aes(y = obs_tspan, 
+#                  color = "obs",
+#   ),
+#   fill = "black",
+#   size = 2,
+#   shape = 21) +
+#   scale_color_manual(name = "",
+#                      breaks = br,
+#                      labels = lb,
+#                      values = cl,
+#                      guide = guide_legend(override.aes = list(shape  = sh,
+#                                                               size   = sz,
+#                                                               linetype = lt,
+#                                                               fill  = fl,
+#                                                               color = cl))) +
+#   guides(fill = "none") +
+#   theme_linedraw() +
+#   facet_wrap(~site_year, scales = "free_x", ncol = 1) +
+#   ylim(0, 40) +
+#   labs(y = bquote("Temperature [°C]"),
+#        x = "Date") 
+# 
+# ggsave(paste0(dir_figs, "/all_tspan.png"), p_tspan_season, width = 12, height = 12)
+# 
+# p_all <- 
+#   (p_topt_season + p_aopt_season + p_tspan_season) +
+#   plot_layout(ncol = 3,
+#               guides = "collect") &
+#   theme(legend.position = "bottom")
+# 
+# ggsave(paste0(dir_figs, "/all_ALL.png"), p_all, width = 12, height = 12)
 
 # ├—— Full Acc and Growth Climate ----
 
@@ -715,11 +723,14 @@ p_facet <-
                  'aopt'  = "A[opt] ~ (µmol/m^2/s)",
                  'tspan' = "T[span] ~ (degree*C)",
                  'cavaleri2014' = "Cavaleri~et~al.~(2014~unpub.)",
+                 'rogers2012' = "Rogers~et~al.~(2012)",
                  'jensen2011' = "Jensen~et~al.~(2015)",
                  'hikosaka2001' = "Hikosaka~et~al.~(2007)",
                  'hikosaka2002' = "Hikosaka~et~al.~(2007)",
                  'slot2016' = "Slot~et~al.~(2017)",
-                 'medlyn2002' = "Medlyn~et~al.~(2007)"),
+                 'medlyn2000' = "Medlyn~et~al.~(2002)"),
+                 # 'medlyn2000' = "Medlyn~et~al.~(2002)~(2)",
+                 # 'medlyn1999' = "Medlyn~et~al.~(2002)~(1)"),
                label_parsed)
              ) +
   ylim(0, 40) +
@@ -733,16 +744,18 @@ p_facet <-
   theme(legend.position = "bottom",
         # axis.title = element_text(size = 12),
         # strip.text = element_text(size = 10),
-        text = element_text(size = 16),
+        text = element_text(size = 12),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank()) +
-  labs(title = expression(bold("Seasonal Acclimation of Traits")),
+  labs(title = NULL, #expression(bold("Seasonal Acclimation of Traits")),
        x = "Day of Year",
        y = "Trait Value") 
 
 
-ggsave(paste0(dir_figs, "seasonality_noacc-fullacc-facet.pdf"), p_facet, width = 12, height = 16)
+ggsave(paste0(dir_figs, "seasonality_noacc-fullacc-facet.pdf"), p_facet, width = 8, height = 11)
 
+beepr::beep()
+stop("End Of Script")
 
 # ├— Plots (other checks) ------------------------------------------
 
@@ -880,4 +893,3 @@ df_inst_fullacc %>%
   # facet_wrap(~site_year, scales = "free", ncol = 1) +
   facet_grid(vars(var), vars(site_year), scales = "free", switch = "y") +
   theme_linedraw() 
-

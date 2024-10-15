@@ -1,14 +1,22 @@
 # TRAJECTORIES BETWEEN DIFFERENT SITES ----
+source("R/source.R")
+
 ## Settings ----
 dir_analysis <- "trajectories"
-dir_tmp <- NA
-use_pfts <- T
+dir_tmp      <- "final"
+use_pfts     <- T
+vcmax25_source <- "kumar19"
+random_or_average_site = "average" # random / average
 
 ## Define directories ----
 # First check how many runs have been made to add counter
 dir_mods <- make_new_dynamic_dir(dir_analysis, "model_rds", dir_tmp)
 dir_figs <- make_new_dynamic_dir(dir_analysis, "figures", dir_tmp)
 dir_tabs <- make_new_dynamic_dir(dir_analysis, "tables", dir_tmp)
+
+dir_mods <- make_new_dynamic_dir(dir_analysis, "model_rds", dir_tmp, return_latest = TRUE)
+dir_figs <- make_new_dynamic_dir(dir_analysis, "figures", dir_tmp, return_latest = TRUE)
+dir_tabs <- make_new_dynamic_dir(dir_analysis, "tables", dir_tmp, return_latest = TRUE)
 
 ## Get Forcing Data ----
 ### Reference ----
@@ -22,25 +30,94 @@ settings$rpmodel_exp <- 2000e-6
 
 df_b15           <- k19_create_df_forcing(settings)
 df_site_date_b15 <- k19_create_input_for_acc(settings, df_b15)
+df_site_date_b15 <- df_site_date_b15 |> mutate(cl_ = purrr::map_chr(siteinfo, ~pull(., cl) %>% substr(., 1, 1)))
 
-# Select sites of interest, one from each climate zone
-df_tmp_0 <- 
-  df_site_date_b15 %>% 
-  mutate(cl_ = purrr::map_chr(siteinfo, ~pull(., cl) %>% substr(., 1, 1))) %>% 
-  group_split(cl_)
+### Define sites to warm ====
+if (random_or_average_site == "random") {
+  # PICKING SITES FOR TRAJECORY BY RANDOM
+  # Select sites of interest, one from each climate zone
+  df_tmp_0 <- 
+    df_site_date_b15 %>% 
+    mutate(cl_ = purrr::map_chr(siteinfo, ~pull(., cl) %>% substr(., 1, 1))) %>% 
+    group_split(cl_)
   
-df_tmp_1 <- tibble()
-set.seed(2023)
-
-for (i in 1:length(df_tmp_0)) {
-  df_tmp_1 <- 
-    rbind(
-      df_tmp_1,
-      df_tmp_0[[i]] %>% 
-        slice_sample(n = 1) %>% 
-        dplyr::select(-cl_)
+  df_tmp_1 <- tibble()
+  set.seed(123)
+  for (i in 1:length(df_tmp_0)) {
+    df_tmp_1 <- 
+      rbind(
+        df_tmp_1,
+        df_tmp_0[[i]] %>% 
+          slice_sample(n = 1) %>% 
+          dplyr::select(-cl_)
       )
+  }
+  
+  df_tmp_1$"cl_" <- NA
+  for (i in 1:length(df_tmp_0)) {
+    df_tmp_1$"cl_"[i] <- df_tmp_1$siteinfo[[i]]$cl
+  }
+} else {
+  # PICKING SITES FOR TRAJECTORY AS ONE AVERAGE SITE PER CLIMATE ZONE
+  df_tmp_1 = tibble(sitename = NA,
+                    cl = NA,
+                    fit_opt = NA,
+                    meas_cond = NA,
+                    siteinfo = NA,
+                    forcing_d = NA,
+                    forcing_growth = NA) |> drop_na()
+  
+  for (cl in unique(df_site_date_b15$cl_)) {
+    print(cl)
+    # Get filtered df
+    df_cl = df_site_date_b15 |> filter(cl_ == cl)
+    # Pick a fit_opt (does not affect results here)
+    fitopt = df_cl$fit_opt[[1]]
+    # Overwrite meas_cond (does not affect results here)
+    meas_cond = tibble(CO2S = NA, CO2R = NA, VpdL = NA, Ci = NA, PARi = NA, Tleaf = NA)
+    # Create average siteinfo (only determines average ppfd that is used in the simulations)
+    siteinfo = tibble(
+      lat = df_cl |> unnest(siteinfo) |> pull(lat) |> mean(),
+      lon = df_cl |> unnest(siteinfo) |> pull(lon) |> mean(),
+      year_start = df_cl |> unnest(siteinfo) |> pull(year_start) |> mean(),
+      year_end = df_cl |> unnest(siteinfo) |> pull(year_end) |> mean(),
+      tc_growth_air_k19 = df_cl |> unnest(siteinfo) |> pull(tc_growth_air_k19) |> mean(),
+      tc_home_k19 = df_cl |> unnest(siteinfo) |> pull(tc_home_k19) |> mean(),
+      ppfd_measurement = df_cl |> unnest(siteinfo) |> pull(ppfd_measurement) |> mean(),
+      tc_home = df_cl |> unnest(siteinfo) |> pull(tc_home) |> mean(),
+      elv = df_cl |> unnest(siteinfo) |> pull(elv) |> mean(),
+      cl = cl,
+    )
+    # Take average daily and average growth forcing
+    forcd = df_cl |> select(forcing_d) |> unnest(c(forcing_d)) |> summarise(across(everything(), mean, na.rm = TRUE))
+    forcg = df_cl |> select(forcing_growth) |> unnest(c(forcing_growth)) |> summarise(across(everything(), mean, na.rm = TRUE))
+    # Extract most common PFT from data_org (should be more or less defined per climate zone anyways)
+    data_org = tibble(
+      PFT = df_cl |> 
+        unnest(data_org) |> 
+        pull(PFT) |> 
+        table() |>
+        sort(decreasing = TRUE) |>
+        names() |>
+        pluck(1)
+    )
+    
+    # Attach it all
+    df_attach = tibble(
+      sitename = cl,
+      cl_ = cl,
+      date =  df_cl$date |> mean(),
+      fit_opt = list(fitopt),
+      meas_cond = list(meas_cond),
+      siteinfo = list(siteinfo),
+      forcing_d = list(forcd),
+      forcing_growth = list(forcg),
+      data_org = list(data_org)
+    )
+    df_tmp_1 = rbind(df_tmp_1, df_attach)
+  }
 }
+
 
 ### Warming ----
 # Add warming to tc_growth and vpd_growth
@@ -96,13 +173,15 @@ df_final_fullacc <- k19_create_final_df(df_inst_fullacc, settings)
 saveRDS(list(df = df_final_fullacc, set = settings), here(dir_mods, "df_final_fullacc.rds"))
 
 ### No Acclimation ----
-settings$method_ftemp <- "leuning02"
+settings$method_ftemp <- "kumarathunge19_fixed"
 settings <- k19_from_forc_to_plot(settings, returndf = "update_settings")
 df_acc   <- k19_run_acc(df_tmp_3, settings)
 
 if (use_pfts) df_acc <- replace_acclimated_with_pfts(df_acc, 
                                                      replace_pc = T, 
-                                                     replace_xi = T)
+                                                     replace_xi = T,
+                                                     jvr_method = settings$method_ftemp,
+                                                     vcmax25_source = vcmax25_source)
 
 df_inst_noacc    <- k19_run_inst(df_acc, settings)
 df_final_noacc <- k19_create_final_df(df_inst_noacc, settings)
@@ -116,11 +195,16 @@ df_acc   <- k19_run_acc(df_tmp_3, settings)
 
 if (use_pfts) df_acc <- replace_acclimated_with_pfts(df_acc, 
                                                      replace_pc = T, 
-                                                     replace_xi = T)
+                                                     replace_xi = T,
+                                                     jvr_method = "kumarathunge19_fixed",
+                                                     vcmax25_source = vcmax25_source)
 
 df_inst_er    <- k19_run_inst(df_acc, settings)
 df_final_er <- k19_create_final_df(df_inst_er, settings)
 saveRDS(list(df = df_final_er, set = settings), here(dir_mods, "df_final_er.rds"))
+
+message("✅ All models successfully run and saved!")
+beepr::beep()
 
 ## Load RDS ----
 all_files  <- list.files(here(dir_mods), pattern = ".rds")
@@ -133,7 +217,7 @@ for (i in 1:length(all_files)) {
   # assign(plot_names[i], plot_all_final_plots_from_df_plot(tmp$df, tmp$set))
 }
 
-## Wrangling dataframes ----
+### Wrangling dataframes ----
 # We want to have a fullacc model that omits temporal acclimation
 # Replace the predicted response curves from the non-warmed df with the warmed dfs
 
@@ -189,7 +273,7 @@ df_er_spatial <-
   unnest(c("data"))
 
 ## Make dfs longer
-df_obs     <- turn_dfplot_into_dfdelta(out_fullacc$df, setup = "obs")
+# df_obs     <- turn_dfplot_into_dfdelta(out_fullacc$df, setup = "obs") # Not needed, right?
 df_noacc   <- turn_dfplot_into_dfdelta(out_noacc$df, setup = "noacc")
 df_er_spatial      <- turn_dfplot_into_dfdelta(df_er_spatial, setup = "er_spatial")
 df_fullacc_spatial <- turn_dfplot_into_dfdelta(df_fullacc_spatial, setup = "fullacc_spatial")
@@ -202,10 +286,15 @@ df_long <-
         df_noacc,
         df_er_spatial)
 
+## Tables ----
+
+# Attach climate zone for better referencing
+df_long <-  df_long |>  mutate(sitename = str_extract(id, "^[^_]+")) |> left_join(df_tmp_1 |> select(sitename, cl_))
+
 tab_traj_agrowth <- 
   df_long %>% 
   dplyr::filter(warming %in% c(0, 5)) %>% 
-  group_by(site_id, setup) %>% 
+  group_by(site_id, setup, cl_) %>% 
   nest() %>% 
   mutate(anetperc_0 = purrr::map_dbl(
              data,
@@ -221,18 +310,17 @@ tab_traj_agrowth <-
          setup = ifelse(str_detect(setup, "fullacc_spatial"), "Adaptation", setup),
          setup = ifelse(str_detect(setup, "noacc"), "Fixed", setup),
          setup = ifelse(str_detect(setup, "er_spatial"), "Adaptation (ER only)", setup),
-         site_id = ifelse(str_detect(site_id, "slot"), "Tropical", site_id),
-         site_id = ifelse(str_detect(site_id, "tarv"), "Temperate", site_id),
-         site_id = ifelse(str_detect(site_id, "jens"), "Boreal", site_id),
-         site_id = ifelse(str_detect(site_id, "roge"), "Arctic", site_id),
-         ecosystem = site_id) %>% 
+         ecosystem = "na",
+         ecosystem = ifelse(cl_ == "A", "Tropical", ecosystem),
+         ecosystem = ifelse(cl_ == "C", "Temperate", ecosystem),
+         ecosystem = ifelse(cl_ == "D", "Boreal", ecosystem),
+         ecosystem = ifelse(cl_ == "E", "Arctic", ecosystem)
+         ) %>% 
   ungroup() %>% 
   dplyr::select(ecosystem, setup, change_realized_anet) %>% 
   arrange(ecosystem, setup)
 
-tab_traj_agrowth %>% knitr::kable()
-
-readr::write_csv(tab_traj_agrowth, paste(dir_tabs, "changes_in_realized_anet.csv"))
+readr::write_csv(tab_traj_agrowth, paste0(dir_figs, "/changes_in_realized_anet.csv"))
 
 ## Plotting ----
 
@@ -277,14 +365,14 @@ p_fill <-
 
 p_shape <- 
   scale_shape_manual(
-    "Ecosystem: ",
+    "Climate: ",
     labels = c("Arctic", "Temperate", "Boreal", "Tropical"),
     values = c(22, 21, 25, 24),
     guide = guide_legend(
       nrow   = 2,
-      byrow  = TRUE,
+      byrow  = FALSE,
       override.aes = list(
-        shape = c(21, 24, 22, 25),
+        shape = c(24, 21, 25, 22),
         fill  = c("white", "white", "white", "white")))
   )
 
@@ -301,7 +389,7 @@ p_theme <-
     strip.text = element_text(face = "bold"),
     plot.title = element_text(hjust = 0.5, size = 14))
   
-## Absolute Change
+#### Absolute Change ----
 p_absolute <-
   df_long %>% 
   ggplot() +
@@ -309,7 +397,7 @@ p_absolute <-
   # > Geoms
   aes(
     # y = rel_red_aopt*100,
-    y = agrowth,
+    y = aopt,
     # x = delta_t
     x = temp
   ) +
@@ -334,15 +422,17 @@ p_absolute <-
   # > Layout
   # ylim(40, 100) +
   # xlim(-15, 15) +
-  labs(y = expression(A[net] ~ "at" ~ T[growth] ~ "[µmol" ~ m ^-2 ~ s ^-1 ~ "]"),
-       # x = expression(T[opt] ~ "-" ~ T[growth] ~ "[°C]")
-       x = expression(T[growth] ~ "[°C]"),
-       subtitle = "A.)"
+  labs(
+    # y = expression(A[net] ~ "at" ~ T[growth] ~ "[µmol" ~ m ^-2 ~ s ^-1 ~ "]"),
+    y = expression(A[opt] ~ "[µmol" ~ m ^-2 ~ s ^-1 ~ "]"),
+    # x = expression(T[opt] ~ "-" ~ T[growth] ~ "[°C]")
+    x = expression(T[growth] ~ "[°C]"),
+    subtitle = "a.)"
        # subtitle = expression(bold("Trajectories of" ~ A[net] ~ "under warming"))
-       )
+    )
 
 
-## Relative change to Aopt
+#### Relative Change ----
 p_relative <-
   df_long %>% 
   ggplot() +
@@ -376,7 +466,7 @@ p_relative <-
   labs(y = expression(A[net] ~ "at" ~ T[growth] ~ "[% of"~ A[opt] ~ "]"),
        # x = expression(T[opt] ~ "-" ~ T[growth] ~ "[°C]")
        x = expression(T[growth] ~ "[°C]"),
-       subtitle = "B.)"
+       subtitle = "b.)"
        # subtitle = expression(bold("Trajectories of" ~ A[net] ~ "under warming"))
        )
 
@@ -400,9 +490,11 @@ p_save <-
 # Relative scale only
 p_save <-
   p_relative + 
-  labs(title = expression(bold("Trajectories of" ~ A[net] ~ "under warming")),
-       subtitle = NULL) +
-  theme(plot.title = element_text(hjust = 0)) + 
+  # labs(title = expression(bold("Trajectories of" ~ A[net] ~ "under warming")), subtitle = NULL) +
+  labs(title = NULL, subtitle = NULL) +
+  theme(plot.title = element_text(hjust = 0),
+        strip.background = element_blank(),
+        strip.text.x = element_blank()) + 
   # Add tags
   geom_text(
     data = 
@@ -411,17 +503,18 @@ p_save <-
         label   = c('(a)', '(b)', '(c)')
       ) %>% 
       mutate(across(setup, factor,levels=c("noacc", "fullacc_spatial", "fullacc_temporal"))),
-    aes(y = 32, 
-        x = 10, 
+    aes(y = 56, 
+        x = 38, 
         label = label),
     fontface = 'bold', 
     size = 4) +
-  ylim(30, 100)
+  xlim(0, 40) +
+  ylim(55, 100)
 
 ggsave(paste0(dir_figs, "/trajectory-relative-only.pdf"),
        p_save,
-       height = 4.25,
-       width = 10)
+       height = 3.5,
+       width = 12)
 
 # Absolute scale only
 p_save <- 
@@ -431,27 +524,27 @@ p_save <-
   theme(plot.title = element_text(hjust = 0))
 
 
-# ggsave(paste0(dir_figs, "/trajectory-absolute-only.pdf"),
-#        p_save,
-#        height = 4.25,
-#        width = 10)
+ggsave(paste0(dir_figs, "/trajectory-absolute-only.pdf"),
+       p_save,
+       height = 4.25,
+       width = 10)
 
-### Noacc - ER - Full ----
-
-## Bind dataframes to one
-# df_long <- 
-#   rbind(df_fullacc_temporal, 
+# ### Noacc - ER - Full ----
+# 
+# ## Bind dataframes to one
+# df_long <-
+#   rbind(df_fullacc_temporal,
 #         df_noacc,
-#         df_er) %>% 
+#         df_er) %>%
 #   mutate(
 #     across(
-#       setup, factor, 
+#       setup, factor,
 #       levels=c("noacc", "er", "fullacc_temporal")))
 # 
 # p <-
-#   df_long %>% 
+#   df_long %>%
 #   ggplot() +
-#   
+# 
 #   # > Geoms
 #   aes(
 #     # y = rel_red_aopt*100,
@@ -508,7 +601,7 @@ p_save <-
 #         shape = c(21, 24, 22, 25),
 #         fill  = c("black", "black", "black", "black")))
 #     ) +
-#   
+# 
 #   # > Layout
 #   # ylim(40, 100) +
 #   # xlim(-15, 15) +
@@ -525,14 +618,14 @@ p_save <-
 # df_tmp_4 <- df_long %>% group_split(setup)
 # 
 # for (i in 1:length(df_tmp_4)) {
-#   
+# 
 #   cat("\n-----------------\n",
 #       "Setup: ", as.character(df_tmp_4[[i]]$setup)[1])
-#   
+# 
 #   df_tmp_5 <- df_tmp_4[[i]] %>% group_split(site_id)
-#   
+# 
 #   for (j in 1:length(df_tmp_5)) {
-#     
+# 
 #     cat("\n Site: ", df_tmp_5[[j]]$site_id[[1]],
 #         "    d Anet = ", round(abs(max(df_tmp_5[[j]]$rel_red_aopt - min(df_tmp_5[[j]]$rel_red_aopt))), 2))
 #   }
