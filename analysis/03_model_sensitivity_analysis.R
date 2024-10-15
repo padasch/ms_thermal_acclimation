@@ -169,7 +169,7 @@ df_inst_k19  <- k19_run_inst(df_acc_k19, settings, sensana = TRUE)
 
 ## L02 part
 settings <- get_settings()
-settings$method_ftemp <- "leuning02"
+settings$method_ftemp <- "kumarathunge19_fixed"
 df_acc_l02   <- k19_run_acc(df_for_acc %>% dplyr::filter(str_detect(sitename, "l02")), 
                             settings)
 df_inst_l02  <- k19_run_inst(df_acc_l02, settings, sensana = TRUE)
@@ -177,14 +177,17 @@ df_inst_l02  <- k19_run_inst(df_acc_l02, settings, sensana = TRUE)
 # Concatenate
 df_sensana_growth <- sensana_inst_to_plot(rbind(df_inst_l02, df_inst_k19))
 
+# Remove ER sensitivity analysis because Leuning2002 not used anymore
+df_sensana_growth <- df_sensana_growth |> filter(sitename != "temp_l02")
+
 ## Plot it ----
 labels <- 
   c(
     'tc_opt' = "T_opt [°C]",
     't_span' = "T_span [°C]",
     'a_opt' = "A_opt [mu mol/m2/s]",
-    'temp_l02' = "Tgrowth [°C] via Leuning 2002",
-    'temp_k19' = "Tgrowth [°C] via Kumar. 2019",
+    'temp_l02' = "Tgrowth fixed [°C]",
+    'temp_k19' = "Tgrowth [°C]",
     'tc_home' = "T_home [°C]",
     'co2' = "CO2 [ppm]",
     'patm' = "P_atm [kPa]",
@@ -388,7 +391,7 @@ for (v in vars) {
 
 ### Run model
 settings <- get_settings()
-settings$method_ftemp <- "leuning02"
+settings$method_ftemp <- "kumarathunge19_fixed"
 df_inst  <- k19_run_inst(df_for_acc, settings, sensana = TRUE)
 df_sensana_with_leuning <- sensana_inst_to_plot(df_inst) 
 
@@ -431,6 +434,12 @@ df_sensana_acc <-
   rbind(df_sensana_with_leuning,
         df_sensana_with_kumara)
 
+# Remove ER sensitivity, not needed anymore after removing Leuning2002
+df_sensana_acc <- df_sensana_acc |> filter(
+  sitename != "temp_leuning",
+  sitename != "temp_kumarathunge"
+)
+
 ## Plot it ----
 ### Labeller
 labels <- 
@@ -443,8 +452,8 @@ labels <-
     'rd25' = "rd25 [mu mol/m2/s]",
     'xi' = "xi [Pa^0.5]",
     'kphio' = "kphio [-]",
-    'temp_leuning' = "Tgrowth [°C] via Leuning 2002",
-    'temp_kumarathunge' = "Tgrowth [°C] via Kumar. 2019")
+    'temp_leuning' = "Tgrowth fixed [°C]",
+    'temp_kumarathunge' = "Tgrowth flexible [°C]")
 
 p_acc <- 
   df_sensana_acc %>% 
