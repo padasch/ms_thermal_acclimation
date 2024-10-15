@@ -1,13 +1,20 @@
 # Wrangling of ACi-TGlob V1.0 Dataset ----
 
+## Load Packages ----
+source(here::here("R/source.R"))
+
 ## Load Raw Data ----
 df_raw <- read_csv(here("data", "raw", "ACi-TGlob", "ACi-TGlob_V1.0.csv"))
 
 ## Checking validity of data ----
 df_raw <- 
-    df_raw %>% 
+  df_raw %>% 
+  mutate(
     ## Correcting wronlgy spelled names
-    mutate(Data_contributor = ifelse(str_detect(Data_contributor, "Cater"), "Kelsey Carter", Data_contributor))
+    Data_contributor = ifelse(str_detect(Data_contributor, "Cater"), "Kelsey Carter", Data_contributor),
+    ## Correct false linebreaks
+    Species = str_replace(Species, "\xa0", "")
+    ) 
 
 ## Filter Raw Data ----
 
@@ -114,8 +121,19 @@ df_jensen_4893 <-
   unnest(data) %>% 
   
   # Converting DOY and year information into day, -1 needed because as_date takes 0 as 1. January)
-  left_join(read_csv(here("data", "raw", "files_from_photom_repo", "SPRUCE_3_cohort_ACi_data.csv")) %>% 
-              dplyr::select(DOY, Year, Photo, Cond)) %>% 
+  left_join(
+    read_csv(
+      here("data", "raw", "files_from_photom_repo", "SPRUCE_3_cohort_ACi_data.csv")) %>% 
+      dplyr::select(DOY, Year, Photo, Cond, Ci, Tleaf),
+      # csv file holds information on season but not DOY, so attaching season to it
+      # mutate(
+      #   season = "NA",
+      #   season = ifelse(DOY < 60   & DOY >= 335, paste("winter"), season),
+      #   season = ifelse(DOY >= 60  & DOY < 152,  paste("spring"), season),
+      #   season = ifelse(DOY >= 152 & DOY < 245,  paste("summer"), season),
+      #   season = ifelse(DOY >= 245 & DOY < 335,  paste("autumn"), season)
+      # ),
+    by = join_by(Photo, Cond, Ci, Tleaf)) %>% 
   
   # To reconstruct date, file from photom repository is used "SPRUCE_3_cohort_ACi_data.csv"
   mutate(Date = as.character(as_date(DOY-1, origin = paste0(Year, "-01-01")))) %>% 
@@ -283,13 +301,24 @@ cat("\n Data points without given date BEFORE unifying dates: ", per_dates_pre, 
 # plot(df_tmp_date$CO2R, df_tmp_date$CO2S)
 # abline(0, 1)
 
+# Filter criteria for leaf-internal and ambient CO2 concentration
+ca_low = 300
+ca_upp = 450
+
+r_ci_ca = 0.7
+
+ci_low = ca_low * r_ci_ca
+ci_upp = ca_upp * r_ci_ca
+
 # Filter
 df_tmp_date_flt <-
   df_tmp_date %>% 
   unnest(data) %>% 
   dplyr::filter(
-    between(Ci, 150, 450) &
-      (between(CO2S, 250, 450) | between(CO2R, 250, 450)))
+    between(Ci, ci_low, ci_upp) | 
+    between(CO2S, ca_low, ca_upp) | 
+    between(CO2R, ca_low, ca_upp)
+  )
   
 # Plots for inspection
 # visdat::vis_miss(df_tmp_date_flt %>% 
@@ -297,16 +326,25 @@ df_tmp_date_flt <-
 #                  show_perc_col = T,
 #                  sort_miss = T)
 
+df_tmp_date_flt |>  
+  group_by(sitename) |> 
+  nest() |> 
+  mutate(
+    n_species = map_dbl(data, ~pull(., Species) |> unique() |> length()),
+    n_replicate = map_dbl(data, ~pull(., replicate) |> unique() |> length())
+  )
+
 ### Extraction ----
 #### battaglia_43147 ----
 df_battaglia_43147     <-
-    df_tmp_date_flt[which(df_tmp$sitename == "battaglia_43147"), ]     %>%
-    mutate(agg_date = sample_date) %>%
-    nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
-    mutate(
-      fit_opt = purrr::map(data_org,  ~fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-      fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
-      )
+  df_tmp_date_flt %>% 
+  dplyr::filter(str_detect(sitename, "battaglia_43147")) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
+  nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
+  mutate(
+    fit_opt = purrr::map(data_org,  ~fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
+    )
 
 ## Check output
 # df_battaglia_43147 %>% dplyr::select(-data_org) %>% unnest(fit_opt)
@@ -314,12 +352,13 @@ df_battaglia_43147     <-
 
 #### carter_1866 ----
 df_carter_1866 <-
-  df_tmp_date_flt[which(df_tmp_date$sitename == "carter_1866"), ] %>%
-  mutate(agg_date = sample_date) %>%
+  df_tmp_date_flt %>% 
+  dplyr::filter(str_detect(sitename, "df_carter_1866")) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
     fit_opt = purrr::map(data_org,~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 # df_carter_1866 %>% dplyr::select(-data_org) %>% unnest(fit_opt)
@@ -353,11 +392,11 @@ df_cernusak_14131 <-
     between(CO2R, 380, 440), # Only use data taken at ambient CO2
     PARi > 1800
   ) %>% # Only use data at light-saturation
-  mutate(agg_date = sample_date) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
-    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "replicate")),
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -369,11 +408,11 @@ df_crous_34151 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "crous_34151")) %>%
   dplyr::filter(between(CO2R, 380, 440)) %>% # Only use data taken at ambient CO2
-  mutate(agg_date = sample_date) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
-    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "replicate")),
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -385,12 +424,12 @@ df_crous_34151 <-
 df_ellsworth_3679 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "ellsworth_3679")) %>%
-  dplyr::filter(between(CO2S, 340, 370)) %>% # QC according to code in photom repository code
-  mutate(agg_date = sample_date) %>%
+  # dplyr::filter(between(CO2S, 340, 370)) %>% # QC according to code in photom repository code
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
-    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "replicate")),
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -398,15 +437,16 @@ df_ellsworth_3679 <-
 # plot_topt_extraction(df_ellsworth_3679)
 
 #### han_35139 ----
-df_han_35139 <- df_tmp_date_flt %>% 
+df_han_35139 <-
+  df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "han_35139")) %>%
   # QC according to code in photom repository code
-  dplyr::filter(between(CO2S, 330, 350)) %>%
-  mutate(agg_date = sample_date) %>%
+  # dplyr::filter(between(CO2S, 330, 350)) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
-    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "replicate")),
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -419,11 +459,11 @@ df_han_36140 <-
   dplyr::filter(str_detect(sitename, "han_36140")) %>%
   # QC according to code in photom repository code
   dplyr::filter(between(Ci, 175, 230)) %>%
-  mutate(agg_date = sample_date) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
-    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "replicate")),
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -436,14 +476,14 @@ df_hikosaka_43142 <-
   dplyr::filter(str_detect(sitename, "hikosaka_43142")) %>%
   # QC according to code in photom repository code
   dplyr::filter(
-    between(CO2S, 360, 375),
+    # between(CO2S, 360, 375),
     !(Curve_Id %in% c(108:110, 115:117))
   ) %>%
-  mutate(agg_date = sample_date) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
-    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "replicate")),
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -455,12 +495,12 @@ df_jensen_4893 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "jensen_4893")) %>%
   # QC according to code in photom repository code
-  dplyr::filter(between(CO2R, 395, 410)) %>%
-  mutate(agg_date = sample_date) %>% # agg_date = floor_date(sample_date, unit = "month")) %>% # Flooring to week
+  # dplyr::filter(between(CO2R, 395, 410)) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>% # agg_date = floor_date(sample_date, unit = "month")) %>% # Flooring to week
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
-    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "replicate")),
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -472,34 +512,64 @@ df_kelly_16145 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "kelly_16145")) %>%
   # QC according to code in photom repository code
-  dplyr::filter(between(CO2R, 375, 425), Ci > 175) %>%
-  mutate(agg_date = sample_date) %>%
+  # dplyr::filter(between(CO2R, 375, 425), Ci > 175) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
-    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "replicate")),
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
 # df_kelly_16145 %>% dplyr::select(-data_org) %>% unnest(fit_opt)
 # plot_topt_extraction(df_kelly_16145)
 
-#### medlyn_355 ----
+#### medlyn_355 ---- merged with 441 below
 df_medlyn_355 <-
-  df_tmp_date_flt %>% 
-  dplyr::filter(str_detect(sitename, "medlyn_355")) %>%
+  df_tmp_date_flt %>%
+  dplyr::filter(str_detect(sitename, "medlyn_355xxx")) %>%
   # QC according to code in photom repository code
-  dplyr::filter(between(Ci, 175, 350), Curve_Id != 62) %>%
-  mutate(agg_date = sample_date) %>%
+  # dplyr::filter(between(Ci, 175, 350), Curve_Id != 62) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
+  # mutate(agg_date = sample_date) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
     fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
 # df_medlyn_355 %>% dplyr::select(-data_org) %>% unnest(fit_opt)
 # plot_topt_extraction(df_medlyn_355)
+
+#### medlyn_441 ----
+df_medlyn_441 <-
+  df_tmp_date_flt %>% 
+  # dplyr::filter(str_detect(sitename, "medlyn_441")) %>%
+  # Merge ---
+  dplyr::filter(str_detect(sitename, "medlyn_441") | str_detect(sitename, "medlyn_355")) %>% 
+  mutate(
+    sitename = "medlyn_441",
+    seed_source_latitude = 44.00,
+    seed_source_longitude = 0.58
+    ) |> 
+  # Merge ---
+  # QC according to code in photom repository code
+  dplyr::filter(
+    # between(Ci, 175, 350), 
+    # Curve_Id != 62
+    ) %>%
+  # mutate(agg_date = sample_date) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
+  nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
+  mutate(
+    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
+    )
+
+## Check output
+# df_medlyn_441 %>% dplyr::select(-data_org) %>% unnest(fit_opt)
+# plot_topt_extraction(df_medlyn_441)
 
 #### medlyn_36148 ----
 df_medlyn_36148 <-
@@ -507,33 +577,17 @@ df_medlyn_36148 <-
   dplyr::filter(str_detect(sitename, "medlyn_36148")) %>%
   # QC according to code in photom repository code
   dplyr::filter(PARi > 1200, Cond > 0.09) %>%
-  mutate(agg_date = sample_date) %>%
+  # mutate(agg_date = sample_date) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
-    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "replicate")),
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
 # df_medlyn_36148 %>% dplyr::select(-data_org) %>% unnest(fit_opt) %>% drop_na(aopt)
 # plot_topt_extraction(df_medlyn_36148)
-
-#### medlyn_441 ----
-df_medlyn_441 <-
-  df_tmp_date_flt %>% 
-  dplyr::filter(str_detect(sitename, "medlyn_441")) %>%
-  # QC according to code in photom repository code
-  dplyr::filter(between(Ci, 175, 350), Curve_Id != 62) %>%
-  mutate(agg_date = sample_date) %>%
-  nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
-  mutate(
-    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
-    )
-
-## Check output
-# df_medlyn_441 %>% dplyr::select(-data_org) %>% unnest(fit_opt)
-# plot_topt_extraction(df_medlyn_441)
 
 #### onoda_41141 ----
 # Comment: Sampling data shows no clear pattern of A_net - T_leaf
@@ -541,12 +595,15 @@ df_onoda_41141 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "onoda_41141")) %>%
   # QC according to code in photom repository code
-  dplyr::filter(Photo < 8.2, between(Ci, 250, 350)) %>%
-  mutate(agg_date = sample_date) %>%
+  dplyr::filter(
+    # between(Ci, 250, 350),
+    Photo < 8.2
+    ) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
     fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -574,11 +631,12 @@ df_rogers_71157 <-
 df_slot_980 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "slot_980")) %>%
-  mutate(agg_date = sample_date) %>%
+  # mutate(agg_date = sample_date) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
     fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -590,12 +648,12 @@ df_tarvainen_5812 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "tarvainen_5812")) %>%
   # QC according to code in photom repository code
-  dplyr::filter(between(CO2R, 395, 405)) %>%
-  mutate(agg_date = sample_date) %>%
+  # dplyr::filter(between(CO2R, 395, 405)) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
-    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "replicate")),
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -607,11 +665,11 @@ df_tarvainen_6420 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "tarvainen_6420")) %>%
   # QC according to code in photom repository code
-  dplyr::filter(between(CO2R, 395, 405)) %>%
+  # dplyr::filter(between(CO2R, 395, 405)) %>%
   mutate(agg_date = floor_date(sample_date, unit = "week")) %>% # Flooring to week
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
-    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
+    fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "replicate")),
     fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
@@ -624,12 +682,15 @@ df_togashi_30121 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "togashi_30121")) %>%
   # QC according to code in photom repository code
-  dplyr::filter(between(CO2R, 365, 435), !(Curve_Id %in% c(19, 23, 27, 44))) %>%
-  mutate(agg_date = sample_date) %>%
+  dplyr::filter(
+    # between(CO2R, 365, 435),
+    !(Curve_Id %in% c(19, 23, 27, 44))
+    ) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
     fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -641,12 +702,15 @@ df_tribuzy_360 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "tribuzy_360")) %>%
   # QC according to code in photom repository code
-  dplyr::filter(between(CO2R, 365, 435), !(Curve_Id %in% c(19, 23, 27, 44))) %>%
-  mutate(agg_date = sample_date) %>%
+  dplyr::filter(
+    # between(CO2R, 365, 435),
+    !(Curve_Id %in% c(19, 23, 27, 44))
+    ) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
     fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -658,12 +722,12 @@ df_wang_6331 <-
   df_tmp_date_flt %>% 
   dplyr::filter(str_detect(sitename, "wang_6331")) %>%
   # QC according to code in photom repository code
-  dplyr::filter(between(Ci, 240, 400)) %>%
-  mutate(agg_date = sample_date) %>%
+  # dplyr::filter(between(Ci, 240, 400)) %>%
+  mutate(agg_date = floor_date(sample_date, unit = "week")) %>%
   nest(data_org = !any_of(c("sitename", "agg_date"))) %>%
   mutate(
     fit_opt = purrr::map(data_org, ~ fit_nonlinear_topt(dat = .x, x = "Tleaf", y = "Photo", random = "Species")),
-    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "daily"))
+    fit_opt = purrr::map(fit_opt, ~mutate(., agg_scale = "weekly"))
     )
 
 ## Check output
@@ -697,7 +761,6 @@ df_pre_qc <-
     df_wang_6331
   ) %>%
   mutate(id = paste0(sitename, "_", agg_date)) 
-  
 
 #__________________________________________________________________________________________________#
 ## Quality Control ----
@@ -707,7 +770,7 @@ df_post_qc <-
     mutate(n_qc = purrr::map_dbl(data_org, ~nrow(.))) %>% 
     unnest(fit_opt) %>% 
     drop_na(topt, agg_date) %>%      # Remove missing fits or missing agg_dates
-    dplyr::filter(n_qc > 5,          # Take out all fits with less than 5 data points
+    dplyr::filter(n_qc > 3,          # Take out all fits with less than 4 data points
                   aopt.se < 5,       # Take out all fits where standard error of A_opt is bigger than 5 µmol/m2/s
                   b > 0,             # Take out all fits with inverted parabola
                   topt.se < 5) %>%   # Take out all fits where standard error of T_opt is bigger than 5 degC
@@ -720,31 +783,54 @@ df_dropped <- df_pre_qc %>% dplyr::filter(!(id %in% ids_of_kept_sites))
 
 ## Adding/Removing based on visual inspection of plots
 add_to_final <-
-  c("medlyn_36148_2002-05-10" # Reasonable fit but with SE = 5.94 was included nonetheless
+  c(
+    "medlyn_36148_2002-05-10",
+    "medlyn_36148_2002-05-05", 
+    
+    # "medlyn_355_2000-10-22",
+    "medlyn_355_1999-08-29",
+    "medlyn_355_1999-11-21",
+    
+    "jensen_4893_2013-07-31",
+    "jensen_4893_2013-08-02",  
+    "jensen_4893_2013-08-03", 
+    
+    "tarvainen_5812_2010-06-15",
+    "tarvainen_5812_2010-06-13",
+    
+    "cavaleri_1866_2015-03-08",
+    "kelly_16145_2011-04-03",
+    "han_35139_2001-07-29"
     )
 
 remove_from_final <-
-  c(
+  list(
     # Data from two leaf temperatures that are spread far away which gives
     # an unreasonably good parabola fit
     "ellsworth_3679_1998-12-15",
-    "ellsworth_3679_1999-08-15",
-    
+
     # Data from 35 different curves that have visibly different T_opt but
     # no additional information given to extract proper fit
     "jensen_4893_2013-08-02",
     
-    ## Unreasonably low assimilation rates, potentially a unit error in original data
+    # Unreasonably low assimilation rates, potentially a unit error in original data
+    "jensen_4893_2013-04-21",
     "jensen_4893_2013-04-23",
     "jensen_4893_2013-04-24",
     "jensen_4893_2013-04-25"
+    
+    # Not matching datapoints
+    # "medlyn_355_2000-01-30",
+    # "medlyn_441_2000-01-30"
+    # "medlyn_441_1999-07-04" # Keep it in
     )
 
 df_post_qc <-
   df_dropped %>% 
   filter(id %in% add_to_final) %>%
   bind_rows(df_post_qc) %>% 
-  filter(!(id %in% remove_from_final))
+  filter(!(id %in% remove_from_final)) |> 
+  arrange(id)
 
 ids_of_kept_sites <- df_post_qc$id
 df_dropped <- df_pre_qc %>% dplyr::filter(!(id %in% ids_of_kept_sites)) 
@@ -755,11 +841,14 @@ if (T %in% c(df_post_qc$id %in% df_dropped$id, df_dropped$id %in% df_post_qc$id)
   stop("Careful, exchanging sites between final and dropped df did not work properly!")
 }
 
-cat("Number of points removed through QC: ", nrow(df_dropped), "out of total: ", nrow(df_pre_qc))
+cat("\n Number of points removed through QC: ", nrow(df_dropped), "out of total: ", nrow(df_pre_qc), "\n")
 
 ## Make plots of final thermal response curves
-dir_1 <- here("output", "wrangling_experimental_data", "final_sites")
-dir_2 <- here("output", "wrangling_experimental_data", "dropped_sites")
+dir_1 <- here("output", "wrangling_experimental_data", Sys.Date(), "final_sites")
+dir_2 <- here("output", "wrangling_experimental_data", Sys.Date(), "dropped_sites")
+
+if (!dir.exists(dir_1)){dir.create(dir_1, recursive = TRUE)}
+if (!dir.exists(dir_2)){dir.create(dir_2, recursive = TRUE)}
 
 big_plot_qc      <- plot_topt_extraction(df_post_qc, make_one_plot = T, dir = dir_1, called_from_wrangling = T)
 big_plot_dropped <- plot_topt_extraction(df_dropped, make_one_plot = T, dir = dir_2, called_from_wrangling = T)
@@ -866,6 +955,36 @@ df_final <-
 ## Add information on climate zone to siteinfo
 df_final <-  add_climatezone_to_siteinfo(df_final)
 
+## Fixing bad pft formatting
+for (i in 1:nrow(df_final)) {
+    # print(unique(df_final$sitedata[[i]]$data_org[[1]]$PFT))
+  for (j in 1:nrow(df_final$sitedata[[i]]$data_org[[1]])){
+    if (df_final$sitedata[[i]]$data_org[[1]]$PFT[j] == "BET_TE"){
+      df_final$sitedata[[i]]$data_org[[1]]$PFT[j] = "BET-Te"
+    }
+    
+    if (df_final$sitedata[[i]]$data_org[[1]]$PFT[j] == "BET_Tr"){
+      df_final$sitedata[[i]]$data_org[[1]]$PFT[j] = "BET-Tr"
+    }
+    
+    if (df_final$sitedata[[i]]$data_org[[1]]$PFT[j] == "NET_TE"){
+      df_final$sitedata[[i]]$data_org[[1]]$PFT[j] = "NET-Te"
+    }
+    
+    if (df_final$sitedata[[i]]$data_org[[1]]$PFT[j] == "BDT_TE"){
+      df_final$sitedata[[i]]$data_org[[1]]$PFT[j] = "BDT-Te"
+    }
+    
+    if (df_final$sitedata[[i]]$data_org[[1]]$PFT[j] == "NET_B"){
+      df_final$sitedata[[i]]$data_org[[1]]$PFT[j] = "NET-Bo"
+    }
+    
+    if (df_final$sitedata[[i]]$data_org[[1]]$PFT[j] == "ARCTIC"){
+      df_final$sitedata[[i]]$data_org[[1]]$PFT[j] = "Arctic"
+    }
+  }
+}
+
 ### Save final T_opt df  ----
 filn <- here("data", "final", "k19_sitename_siteinfo_sitedata.rds")
 saveRDS(df_final, filn)
@@ -878,58 +997,39 @@ df_final <- readRDS(here("data", "final", "k19_sitename_siteinfo_sitedata.rds"))
 ### Global map ----
 p_map <- plot_global_samples(df_final)
 # p_map + dark_theme_classic() + theme(legend.position = "bottom") + ggtitle(NULL)
-dir_tmp <- here("output/global_maps")
+dir_tmp <- here("output", "global_maps", Sys.Date())
 if (!dir.exists(dir_tmp)) dir.create(dir_tmp, recursive = T, showWarnings = F)
 ggsave(paste0(dir_tmp, "/global_map.pdf"), p_map, width = 9, height = 7)
 
-### Check data availability and distributions ----
-## Ridges to see distributions of data
-# df_final %>%
-#   unnest(sitedata) %>% 
-#   unnest(meas_cond) %>% 
-#   pivot_longer(cols = c("CO2S", "CO2R", "Ci", "VpdL", "Tleaf", "PARi")) %>% 
-#   mutate(name = as.factor(name)) %>% 
-#   ggplot() +
-#   ggridges::geom_density_ridges(aes(y = sitename, x = value),
-#                                 alpha = 0.5,
-#                                 jittered_points = TRUE,
-#                                 point_alpha=0.25,
-#                                 # point_shape=1,
-#                                 scale = 0.9) +
-#   facet_wrap(~name, scales = "free_x", nrow = 1) +
-#   theme_classic()
-# 
-# visdat::vis_miss(
-#   df_final %>%
-#   unnest(sitedata) %>% 
-#   unnest(data_org) %>% 
-#   dplyr::select(Ci, CO2R, CO2S, VpdL, Tleaf, Photo), 
-#   show_perc_col = T,
-#   sort_miss = T)
-
 ### Meta Info Table ----
 tab_meta <- 
-  df_final %>% 
-  unnest(c(sitedata, siteinfo)) %>% 
-  unnest(c(fit_opt, data_org)) %>% 
-  group_by(sitename) %>% 
-  nest() %>% 
-  mutate(n = purrr::map_chr(data, ~pull(., agg_date) %>% unique() %>% length()),
-         agg_scale = purrr::map_chr(data, ~pull(., agg_scale) %>% unique() %>% str_flatten(collapse = ", ")),
-         agg_date = purrr::map_chr(data, ~pull(., agg_date) %>% unique() %>% str_flatten(collapse = ", ")),
-         species = purrr::map_chr(data, ~pull(., Species) %>% unique() %>% str_flatten(collapse = ", ")),
-         species = str_replace(species, "�", replacement = " "),
+  df_final %>%
+  unnest(c(sitedata, siteinfo)) %>%
+  unnest(c(fit_opt, data_org)) %>%
+  group_by(sitename) %>%
+  nest() %>%
+  mutate(
+         `Original Ref.`   = purrr::map_chr(data, ~pull(., Reference) %>% unique() %>% str_flatten(collapse = ", ")),
+         `Original Ref.`   = str_remove(`Original Ref.`, "\xa0"),
+         `N Curves`         = purrr::map_chr(data, ~pull(., agg_date) %>% unique() %>% length() |> as.character()),
+         # agg_scale = purrr::map_chr(data, ~pull(., agg_scale) %>% unique() %>% str_flatten(collapse = ", ")),
+         # agg_scale = purrr::map_chr(data, ~pull(., agg_scale) %>% unique() |> paste0())
+         Dates  = purrr::map_chr(data, ~pull(., agg_date) %>% unique() %>% str_flatten(collapse = ", ")),
+         `N Dates` = str_split(Dates, ",", simplify = TRUE) |> length(),
+         Species   = purrr::map_chr(data, ~pull(., Species) %>% unique() %>% str_flatten(collapse = ", ")),
+         `N Species` = str_split(Species, ",", simplify = TRUE) |> length(),
          # pft = purrr::map_chr(data, ~pull(., PFT) %>% unique() %>% str_flatten(collapse = ", ")),
-         org_ref = purrr::map_chr(data, ~pull(., Reference) %>% unique() %>% str_flatten(collapse = ", ")),
-         org_ref = str_remove(org_ref, "\xa0"),
-         lat = purrr::map_chr(data, ~pull(., lat) %>% unique()),
-         lon = purrr::map_chr(data, ~pull(., lon) %>% unique()),
-         cl = purrr::map_chr(data, ~pull(., cl) %>% unique()),
-         pft = purrr::map_chr(data, ~pull(., PFT) %>% unique()),
-         agg_scale = purrr::map_chr(data, ~pull(., agg_scale) %>% unique())) %>%
-  dplyr::select(-data)
+         Latitude       = purrr::map_chr(data, ~pull(., lat) %>% unique() |> paste0()),
+         Longitude       = purrr::map_chr(data, ~pull(., lon) %>% unique() |> paste0()),
+         CZ        = purrr::map_chr(data, ~pull(., cl) %>% unique()  |> paste0()),
+         PFT       = purrr::map_chr(data, ~pull(., PFT) %>% unique() |> paste0()),
+         ) %>%
+  dplyr::select(-data) |> 
+  dplyr::rename(ID = sitename)
 
-dir_tmp <- here("output/metadata")
+dir_tmp <- here("output", "metadata", Sys.Date())
 if (!dir.exists(dir_tmp)) dir.create(dir_tmp, recursive = T, showWarnings = F)
 
+tab_meta
 write.csv(tab_meta, paste0(dir_tmp, "/si_site-metadata.csv"), row.names = FALSE)
+write.table(tab_meta, paste0(dir_tmp, "/si_site-metadata.csv_&-delimited"), row.names = FALSE, sep = "&")
