@@ -46,6 +46,7 @@ vignettes/*.pdf
 /data/raw/*
 /data/tmp/*
 /docs/
+/manuscript/
 
 # MacOS
 .DS_store
