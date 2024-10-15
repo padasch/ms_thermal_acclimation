@@ -1,4 +1,4 @@
-# Global Photosynthesis Acclimates to Rising Temperatures Through Predictable Changes in Photosynthetic Capacities, Stomatal Sensitivity and Enzyme Kinetics
+# Global Photosynthesis Acclimates to Rising Temperatures Through Predictable Changes in Photosynthetic Capacities, Enzyme Kinetics, and Stomatal Sensitivity
 
 {Citation to be added after publication}
 
