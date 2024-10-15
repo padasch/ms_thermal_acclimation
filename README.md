@@ -2,7 +2,7 @@
 
 {Citation to be added after publication}
 
-## Abstract
+## Simple Abstract
 
 Plants can adjust their photosynthetic processes in response to gradual temperature changes over a period of weeks, a mechanism known as thermal acclimation. This acclimation may help plants mitigate the impacts of global warming, but many models simulating the response of vegetation to a changing climate do not fully incorporate it.
 In this study, we tested a photosynthesis model that predicts a plant's response to gradual temperature changes based on general principles rather than specific plant types. These principles, stemming from optimality theory and fundamental biochemistry, describe thermal acclimation through different internal processes that regulate the use of carbon, water, and energy. We compared the model with a global dataset of leaf measurements to disentangle the influence of these different processes on photosynthesis.
@@ -10,8 +10,6 @@ We found that to accurately predict observed patterns, it was essential to inclu
 This study highlights the importance of incorporating thermal acclimation into vegetation models to improve predictions of plant responses under future climate scenarios.
 
 ![](graphical_abstract.png)
-
-*Graphical Abstract: Modelled and observed patterns of photosynthetic traits against $T_{\text{growth}}$. Rows denote the three traits: $T_{\text{opt}}$ (a, b, c), $A_{\text{opt}}$ (d, e, f), and $T_{\text{span}}$ (g, h, i). Columns denote the source of the shown trait: model setup without acclimation (a, d, g), full model setup (b, e, h), and observations (c, f, i). For observations, the error bars reflect standard errors (observations for $T_{\text{span}}$ have no error bars because they were back-calculated from fitted response curves; see Section \ref{sec:observational-data}). Black solid lines and surrounding grey areas are linear regressions with 95\% confidence intervals (only shown if significant at $p < 0.01$; for values, see Table \ref{tab:acclimation-rates}). Vertical grey dashed lines in the top row show the intersection point at which $T_{\text{opt}} = T_{\text{growth}}$ and the surrounding grey area denotes the intersection of the linear regression's upper and lower 95\% confidence interval with the dotted one-to-one line. Colours denote the Koeppen-Geiger climate zone classification: Af = Equatorial rainforest, Am = Equatorial monsoon, Aw = Equatorial savannah with dry winter, Cfa = Warm temperate fully humid with hot summer, Cfb = Warm temperate fully humid with warm summer, Dfb = Snow climate fully humid with warm summer, Dfc = Snow climate fully humid with cool summer, ET = Polar tundra \citep{kottek2006}.*
 
 ------------------------------------------------------------------------
 
